@@ -1,6 +1,6 @@
 <h1 align="center"><img src="img/logo.png" alt="PyDeskMates" style="width: 50%; min-width: 256px;
 display: block; margin: auto;"></h1>
-
+[![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/release/python-360/)
 <p>An incomplete remake of Oska Software's DeskMates in Python.</p>
 
 <h2>What are DeskMates?</h2>

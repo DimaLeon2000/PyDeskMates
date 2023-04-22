@@ -158,12 +158,7 @@ if __name__ == '__main__':
     # Regex: ,\s*(?![^()]*\))(?![^\[\]]*\])
     # left=min(pnt1[0],(pnt2.[0]-frame_width))
     # top=min(-pnt1[1],(-pnt2.[1]-frame_width))
-    # curChar = 'Kahli3D'
-    # workDir = 'E:\\DeskMates\\'
-    # fileName = 'T20.FAS'
-    # test_fas = debug_fas_tool(workDir+curChar+'\\Data\\'+fileName)
-    fas_deflate(r'JOHLEE_S_FLOATUPGRADE2mod.FAS')
-    test_fas = debug_fas_tool(r'test\\JOHLEE_S_FLOATUPGRADE.FAS')
+    test_fas = debug_fas_tool(r'TEST_FILE.FAS')
     root = tkinter.Tk()
     if hasattr(test_fas, 'touch'):  # get hotspots
         touch_map = tkinter.PhotoImage(width=test_fas.header['width'], height=test_fas.header['height'])
@@ -209,5 +204,3 @@ if __name__ == '__main__':
     # root.configure(bg='black')
     root.mainloop()
     del test_fas
-    # debug_fas_tool(r'E:\DeskMates\Maeka\Data\touch_demo.FAS')
-    # debug_was_tool(r'E:\DeskMates\Kahli\Data\DESKMATE.WAS')
