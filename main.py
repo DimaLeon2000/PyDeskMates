@@ -1,6 +1,8 @@
 from audio_data import WASData
 from animation_data import FASData
 from bit_reader import *
+import io
+from PIL import Image, ImageTk
 import pyaudio
 import struct
 import tkinter
@@ -63,7 +65,6 @@ def debug_was_tool(audio_path):  # for reading .WAS files, that contain 16-bit P
                 print('DONE!')
 
         elif selection == '4':
-            print('You quitter...')
             break
         else:
             print("Unknown Option Selected!")
@@ -107,31 +108,10 @@ def faz_inflate(packed_path):
 def draw_frame(__frame_num):
     if test_fas.frames_header['count'] >= 1:
         # print(__frame_num)
-        image_frame.blank()
-        palette_num = test_fas.frames_header['pal'][__frame_num]
-        pal_color = test_fas.dib_headers[palette_num * 2]
-        pal_mask = test_fas.dib_headers[1 + palette_num * 2]
-        bpp = pal_color['bpp']
-        stride = (bpp * test_fas.header['width']+31)//32*(32//bpp)
-        i, j = 0, 0
-        # stride formula: (bpp * test_fas.header['width']+31)//32*(32//bpp)
-        # [print(read_bits_per_pixel(i[0],bpp), end='') for i in test_fas.reader.frames_bitmap[frame_num]]
-        # print(len(list(test_fas.frames_bitmap[__frame_num])))
-        for x in test_fas.frames_bitmap[__frame_num]:
-            col = read_bits_per_pixel(x, bpp)
-            for y in range(len(col)):
-                image_frame.put('#%02x%02x%02x' % read_rgb(pal_color['colormap'][col[y]],
-                                                           # + pal_mask['colormap'][col[y]]
-                                                           False),
-                                (j, test_fas.header['height'] - 1 - i))
-                # image_frame.put('#%02x%02x%02x' % read_rgb(pal_mask['colormap'][col[y]], False),
-                #                 (j + test_fas.header['width'], test_fas.header['height'] - 1 - i))
-                j += 1
-                if j >= stride:
-                    i += 1
-                    j -= stride
+        image_data = test_fas.get_frame_bitmap(__frame_num, mask=False)
+        image_frame = ImageTk.PhotoImage(image_data)
         frame_canvas.create_image(0, 0, image=image_frame, anchor=tkinter.NW)
-        root.title('Frame #'+f"{test_fas.frames_header['id'][frame_num]:04d}")
+        root.title('Frame #' + f"{test_fas.frames_header['id'][__frame_num]:04d}")
 
 
 def terminate(event):
@@ -192,15 +172,18 @@ if __name__ == '__main__':
                                   height=test_fas.header['height'],
                                   highlightthickness=0)
     frame_canvas.pack()
-    image_frame = tkinter.PhotoImage(width=test_fas.header['width'], height=test_fas.header['height'])
+    # image_frame = ImageTk.PhotoImage(width=test_fas.header['width'], height=test_fas.header['height'])
     # frame_num = test_fas.frames_header['count'] - 1
-    frame_id = 4000
-    frame_num = test_fas.frames_header['id'].index(frame_id)
-    root.title('Rendering...')
-    draw_frame(frame_num)
-    # print(test_fas.frames_bitmap[frame_num])
-    root.bind_all('<Key>', terminate)
-    root.bind_all('<Button>', mouse_click)
-    # root.configure(bg='black')
-    root.mainloop()
-    del test_fas
+    # frame_id = 4000; frame_num = test_fas.frames_header['id'].index(frame_id)
+    if test_fas.frames_header['count'] >= 1:
+        frame_num = 0
+        root.title('Rendering...')
+        # draw_frame(frame_num)
+        image_frame = ImageTk.PhotoImage(Image.open(io.BytesIO(test_fas.get_frame_bitmap(frame_num, mask=False))))
+        frame_canvas.create_image(0, 0, image=image_frame, anchor=tkinter.NW)
+        root.title('Frame #'+f"{test_fas.frames_header['id'][frame_num]:04d}")
+        root.bind_all('<Key>', terminate)
+        root.bind_all('<Button>', mouse_click)
+        root.after(1000,draw_frame,frame_num+1)
+        root.configure(bg='black')
+        root.mainloop()

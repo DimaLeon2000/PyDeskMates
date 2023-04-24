@@ -7,78 +7,91 @@ class FASReader:
     def __init__(self, fas_path):
         filename = os.path.splitext(os.path.basename(fas_path))[0]
         self.fas_file = open(fas_path, 'rb')
+        print(self.fas_file)
         self.header = self.read_header()
-        self.dib_headers = []
-        dib_headers_size = 0
+        self.bitmap_infos = []
+        bitmap_infos_size = 0
         for i in range(self.header['doublepal_count'] * 2):
-            dib_header = {
-                'header_size': self.read_4_bytes(offset=self.header['header_size'] + dib_headers_size,
-                                                 byte_format='I'),
-                'width': self.read_4_bytes(offset=self.header['header_size'] + 4 + dib_headers_size),
-                'height': self.read_4_bytes(offset=self.header['header_size'] + 8 + dib_headers_size),
-                'planes': self.read_2_bytes(offset=self.header['header_size'] + 12 + dib_headers_size),
-                'bpp': self.read_2_bytes(offset=self.header['header_size'] + 14 + dib_headers_size),
-                'compression': self.read_4_bytes(offset=self.header['header_size'] + 16 + dib_headers_size,
-                                                 byte_format='I'),
-                'image_size': self.read_4_bytes(offset=self.header['header_size'] + 20 + dib_headers_size,
-                                                byte_format='I'),
-                'temp': [self.read_4_bytes(offset=self.header['header_size'] + 24 + dib_headers_size),
-                         self.read_4_bytes(offset=self.header['header_size'] + 28 + dib_headers_size),
-                         self.read_4_bytes(offset=self.header['header_size'] + 32 + dib_headers_size, byte_format='I'),
-                         self.read_4_bytes(offset=self.header['header_size'] + 36 + dib_headers_size, byte_format='I')],
-                'colormap': []
-            }
-            for j in range(dib_header['temp'][2] if (dib_header['temp'][2] != 0) else 2 ** dib_header['bpp']):
-                dib_header['colormap'].append(self.read_4_bytes(offset=self.header['header_size'] + 40 +
-                                                                dib_headers_size + j * 4, byte_format='I'))
-            self.dib_headers.append(dib_header)
-            dib_headers_size += dib_header['header_size'] + len(dib_header['colormap']) * 4
+            # bitmap_info = {
+            #     'header_size': self.read_4_bytes(offset=self.header['header_size'] + bitmap_infos_size,
+            #                                      byte_format='I'),
+            #     'width': self.read_4_bytes(offset=self.header['header_size'] + 4 + bitmap_infos_size),
+            #     'height': self.read_4_bytes(offset=self.header['header_size'] + 8 + bitmap_infos_size),
+            #     'planes': self.read_2_bytes(offset=self.header['header_size'] + 12 + bitmap_infos_size),
+            #     'bpp': self.read_2_bytes(offset=self.header['header_size'] + 14 + bitmap_infos_size),
+            #     'compression': self.read_4_bytes(offset=self.header['header_size'] + 16 + bitmap_infos_size,
+            #                                      byte_format='I'),
+            #     'image_size': self.read_4_bytes(offset=self.header['header_size'] + 20 + bitmap_infos_size,
+            #                                     byte_format='I'),
+            #     'temp': [self.read_4_bytes(offset=self.header['header_size'] + 24 + bitmap_infos_size),
+            #              self.read_4_bytes(offset=self.header['header_size'] + 28 + bitmap_infos_size),
+            #              self.read_4_bytes(offset=self.header['header_size'] + 32 + bitmap_infos_size,
+            #                                byte_format='I'),
+            #              self.read_4_bytes(offset=self.header['header_size'] + 36 + bitmap_infos_size,
+            #                                byte_format='I')],
+            #     'colormap': []
+            # }
+            # for j in range(bitmap_info['temp'][2] if (bitmap_info['temp'][2] != 0) else 2 ** bitmap_info['bpp']):
+            #     bitmap_info['colormap'].append(self.read_4_bytes(offset=self.header['header_size'] + 40 +
+            #                                                     bitmap_infos_size + j * 4, byte_format='I'))
+            bitmap_info_header_size = self.read_4_bytes(offset=self.header['header_size'] + bitmap_infos_size,
+                                                        byte_format='I')
+            bpp = self.read_2_bytes(offset=self.header['header_size'] + 14 + bitmap_infos_size)
+            colors_used = self.read_4_bytes(offset=self.header['header_size'] + 32 + bitmap_infos_size, byte_format='I')
+            # print(hex(self.header['header_size'] + bitmap_infos_size)+':', bitmap_info_header_size, colors_used)
+            bitmap_info = self.read_bytes_raw(offset=self.header['header_size'] + bitmap_infos_size,
+                                              num_bytes=bitmap_info_header_size +
+                                              (colors_used if (colors_used >= 1) else 2 ** bpp)*4)
+            self.bitmap_infos.append(bitmap_info)
+            # bitmap_infos_size += bitmap_info['header_size'] + len(bitmap_info['colormap']) * 4
+            bitmap_infos_size += len(bitmap_info)
+            # print(bitmap_info)
         if self.header['version'] >= 1:
-            self.char_id = self.read_1_byte(offset=self.header['header_size'] + dib_headers_size)
+            self.char_id = self.read_1_byte(offset=self.header['header_size'] + bitmap_infos_size)
         if self.header['version'] >= 2:
-            self.extra_sprite_files = self.read_extra_sprite_files(self.header['header_size'] + dib_headers_size
+            self.extra_sprite_files = self.read_extra_sprite_files(self.header['header_size'] + bitmap_infos_size
                                                                    + int(self.header['version'] >= 1))
         else:
             self.extra_sprite_files = {'size': 0, 'count': 0, 'list': []}  # Failsafe
         if self.header['version'] >= 3:  # get missing upper 2 bytes of the frame_size variable
-            self.header['frame_size'] += self.read_2_bytes(offset=self.header['header_size'] + dib_headers_size
+            self.header['frame_size'] += self.read_2_bytes(offset=self.header['header_size'] + bitmap_infos_size
                                                            + int(self.header['version'] >= 1)
                                                            + int(self.header['version'] >= 2)
                                                            * self.extra_sprite_files['size']) << 16
-        touch_colors = self.read_2_bytes(offset=self.header['header_size'] + dib_headers_size
+        touch_colors = self.read_2_bytes(offset=self.header['header_size'] + bitmap_infos_size
                                          + int(self.header['version'] >= 1)
                                          + int(self.header['version'] >= 2) * self.extra_sprite_files['size']
                                          + int(self.header['version'] >= 3) * 2)
         if touch_colors >= 1:  # check for hotspots
-            touch_width = self.read_2_bytes(offset=self.header['header_size'] + dib_headers_size
+            touch_width = self.read_2_bytes(offset=self.header['header_size'] + bitmap_infos_size
                                             + int(self.header['version'] >= 1) + touch_colors * 4 + 2
                                             + int(self.header['version'] >= 2) * self.extra_sprite_files['size']
                                             + int(self.header['version'] >= 3) * 2
                                             )
             self.touch = {
-                'colors': [self.read_4_bytes(offset=self.header['header_size'] + dib_headers_size
+                'colors': [self.read_4_bytes(offset=self.header['header_size'] + bitmap_infos_size
                                              + int(self.header['version'] >= 1) + i * 4 + 2
                                              + int(self.header['version'] >= 2) * self.extra_sprite_files['size']
                                              + int(self.header['version'] >= 3) * 2, byte_format='I')
                            for i in range(touch_colors)],
                 'width': touch_width,
-                'bitmap': self.read_bytes_raw(offset=self.header['header_size'] + dib_headers_size
+                'bitmap': self.read_bytes_raw(offset=self.header['header_size'] + bitmap_infos_size
                                               + int(self.header['version'] >= 1) + touch_colors * 4 + 4
                                               + int(self.header['version'] >= 2) * self.extra_sprite_files['size']
                                               + int(self.header['version'] >= 3) * 2,
                                               num_bytes=touch_width * self.header['height'])
-                # 'bitmap': self.read_bytes_iter(offset=self.header['header_size'] + dib_headers_size
+                # 'bitmap': self.read_bytes_iter(offset=self.header['header_size'] + bitmap_infos_size
                 #                           + int(self.header['version'] >= 1) + touch_colors * 4 + 4
                 #                           + int(self.header['version'] >= 2) * self.extra_sprites['size']
                 #                           + int(self.header['version'] >= 3) * 2,
                 #                           num_bytes=touch_width * self.header['height'], byte_format='B')
             }
-            self.seq_offset = (self.header['header_size'] + dib_headers_size + int(self.header['version'] >= 1) + 2
+            self.seq_offset = (self.header['header_size'] + bitmap_infos_size + int(self.header['version'] >= 1) + 2
                                + int(self.header['version'] >= 2) * self.extra_sprite_files['size']
                                + int(self.header['version'] >= 3) * 2
                                + (touch_colors >= 1) * (touch_colors * 4 + 2 + len(list(self.touch['bitmap']))))
         else:
-            self.seq_offset = (self.header['header_size'] + dib_headers_size + int(self.header['version'] >= 1) + 2
+            self.seq_offset = (self.header['header_size'] + bitmap_infos_size + int(self.header['version'] >= 1) + 2
                                + int(self.header['version'] >= 2) * self.extra_sprite_files['size']
                                + int(self.header['version'] >= 3) * 2)
         self.seq_header = self.read_seq_header(self.seq_offset)
@@ -121,7 +134,7 @@ class FASReader:
             'count': self.read_4_bytes(offset=__offset),
             'id': [self.read_2_bytes(offset=__offset + 4 + i * 2)
                    for i in range(self.read_4_bytes(offset=__offset))],
-            'pal': [self.read_1_byte(offset=__offset + 4 + self.read_4_bytes(offset=__offset) * 2 + i)
+            'info': [self.read_1_byte(offset=__offset + 4 + self.read_4_bytes(offset=__offset) * 2 + i)
                     for i in range(self.read_4_bytes(offset=__offset))]
         }
 
@@ -131,9 +144,14 @@ class FASReader:
                        + self.seq_header['seq_count'] * 8 + self.seq_offset)
         seq_offset = (pointers['data_offset'] + self.seq_header['header_size']
                       + self.seq_header['seq_count'] * 8 + self.seq_offset)
+        # print(hex(name_offset),hex(seq_offset))
+        # seq_info = {
+        #     'name': self.read_string(offset=name_offset, num_bytes=50),
+        #     'sequence': self.read_string_iso(offset=seq_offset, num_bytes=4000)
+        # }
         seq_info = {
-            'name': self.read_string(offset=name_offset, num_bytes=50),
-            'sequence': self.read_string_iso(offset=seq_offset, num_bytes=4000)
+            'name': self.read_string_null_terminated(offset=name_offset),
+            'sequence': self.read_string_null_terminated_iso(offset=seq_offset)
         }
         return seq_info
 
@@ -186,6 +204,29 @@ class FASReader:
         return ''.join(b.decode('iso_8859_1') for b in
                        self.read_bytes(offset, num_bytes, byte_format='c' * num_bytes)
                        ).split('\x00')
+
+    def read_string_null_terminated_iso(self, offset):
+        # c - char
+        i, result = 0, b''
+        while True:
+            b = self.read_bytes_raw(offset=offset + i, num_bytes=1)
+            if (b == b'\x00') or (b == b''):
+                break
+            result += b
+            i += 1
+        return result.decode('iso_8859_1')
+
+    def read_string_null_terminated(self, offset):
+        # c - char
+        i, result = 0, b''
+        while True:
+            b = self.read_bytes_raw(offset=offset + i, num_bytes=1)
+            if (b == b'\x00') or (b == b''):
+                break
+            if ord(b) in range(0, 128):
+                result += b
+            i += 1
+        return result.decode('ascii')
 
     def read_string_iso(self, offset, num_bytes):
         # c - char

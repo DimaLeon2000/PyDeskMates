@@ -9,7 +9,7 @@ class FASData:
         # if self.reader != 0:
         #     print('File read!')
         self.header = self.reader.header
-        self.dib_headers = self.reader.dib_headers
+        self.bitmap_infos = self.reader.bitmap_infos
         if hasattr(self.reader, 'touch'):
             self.touch = self.reader.touch
         self.sequences = {}
@@ -17,8 +17,7 @@ class FASData:
             sequence = self.reader.read_sequence(i)
             self.sequences[sequence['name']] = sequence['sequence']
             # print(sequence['name'] + ':', self.sequences[sequence['name']])
-            print(sequence['name'])
-            print(sequence['sequence'])
+            print(sequence['name']+':', sequence['sequence'])
             # print(sequence['name']+' (parsed): ', self.parse_sequence(seq=sequence['name']))
         self.frames_header = self.reader.frames_header
         self.frames_bitmap = self.reader.frames_bitmap
@@ -38,8 +37,12 @@ class FASData:
             pass
         return parts
 
-    def __del__(self):
-        self.header = {}
-        self.dib_headers = {}
-        self.touch = {}
-        self.reader.close()
+    def get_frame_bitmap(self, __frame, mask=bool):
+        bitmap_info = self.bitmap_infos[self.frames_header['info'][__frame] * 2 + int(mask)]
+        bitmap = self.frames_bitmap[__frame]
+        header = b'BM' + int(len(bitmap_info) + len(bitmap) + 14).to_bytes(length=4,byteorder='little', signed=False) \
+        + (0).to_bytes(length=2, byteorder='little', signed=False) \
+        + (0).to_bytes(length=2, byteorder='little', signed=False) \
+        + int(len(bitmap_info) + 14).to_bytes(length=4, byteorder='little', signed=False)
+        data = header + bitmap_info + bitmap
+        return data

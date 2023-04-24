@@ -3,6 +3,7 @@ display: block; margin: auto;"></h1>
 
 [![code license](https://img.shields.io/badge/code%20license-MIT-green.svg)](https://github.com/DimaLeon2000/PyDeskMates/blob/main/LICENSE)
 [![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/release/python-360/)
+![experimental](http://badges.github.io/stability-badges/dist/experimental.svg)(http://github.com/badges/stability-badges)
 
 <p>An incomplete remake of Oska Software's DeskMates in Python.</p>
 
@@ -96,4 +97,4 @@ Example (taken from the sfx_iris.FAS file of the Kahli 3D DeskMate):
 </li>
 </ul>
 <h2>Things to be improved</h2>
-<ul><li>Faster and better image rendering</li></ul>
+<ul><li>Better image rendering</li></ul>
