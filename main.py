@@ -138,7 +138,7 @@ if __name__ == '__main__':
     # Regex: ,\s*(?![^()]*\))(?![^\[\]]*\])
     # left=min(pnt1[0],(pnt2.[0]-frame_width))
     # top=min(-pnt1[1],(-pnt2.[1]-frame_width))
-    test_fas = debug_fas_tool(r'TEST_FILE.FAS')
+    test_fas = FASData(r'TEST_FILE.FAS')
     root = tkinter.Tk()
     if hasattr(test_fas, 'touch'):  # get hotspots
         touch_map = tkinter.PhotoImage(width=test_fas.header['width'], height=test_fas.header['height'])
