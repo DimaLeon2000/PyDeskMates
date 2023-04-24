@@ -2,6 +2,22 @@ from animation_reader import FASReader
 import re
 from ast import literal_eval
 
+REGEX_EXTRA_SPRITE = r'(#{1,2})(.+[^,])' # places a temporary extra sprite
+# (group #1: absolute/relative positioning; group #2: sequence)
+REGEX_FENCING = r'©(?:\[(-?[0-9]+)\,(-?[0-9]+)\])?(\d[lcr]\d[tmb])\,(?:\[(-?[0-9]+)\,(-?[0-9]+)\])?(\d[lcr]\d[tmb])©'
+REGEX_FRAME_RANGE = r'([0-9]+)-([0-9]+)'
+REGEX_OFFSET = r'\[(-?[0-9]+,-?[0-9]+)\]'
+REGEX_RANDOM_CHOICES = r'{(.+?)}'
+REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED = r'(\(.+?\)|[a-zA-Z_0-9]+|[0-9]+)%([0-9]+)'
+REGEX_FLOATING = r'§([0-9])\/([0-9])'
+REGEX_REPEAT = r'(\(.+?\)|[a-zA-Z_0-9]+|[0-9]+)\*([0-9])+'  # Repeat the sequence X times
+REGEX_REPEAT_TIMER = r'(\(.+?\)|[a-zA-Z_0-9]+|[0-9]+)\@([0-9])+'  # Repeat the sequence for X frames / X/10 seconds
+# (the hardcoded frame rate is 10 frames per second)
+REGEX_SOUND = r' !([^,]+)'  # Play sound effect (group #1: sound name)
+REGEX_FLIP_HORIZONTAL = r'<'
+REGEX_FLIP_VERTICAL = r'\^'
+REGEX_MASKING = r'\xBD'
+
 
 class FASData:
     def __init__(self, fas_path):
@@ -17,7 +33,6 @@ class FASData:
             sequence = self.reader.read_sequence(i)
             self.sequences[sequence['name']] = sequence['sequence']
             # print(sequence['name'] + ':', self.sequences[sequence['name']])
-            print(sequence['name']+':', sequence['sequence'])
             # print(sequence['name']+' (parsed): ', self.parse_sequence(seq=sequence['name']))
         self.frames_header = self.reader.frames_header
         self.frames_bitmap = self.reader.frames_bitmap

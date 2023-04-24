@@ -7,7 +7,6 @@ class FASReader:
     def __init__(self, fas_path):
         filename = os.path.splitext(os.path.basename(fas_path))[0]
         self.fas_file = open(fas_path, 'rb')
-        print(self.fas_file)
         self.header = self.read_header()
         self.bitmap_infos = []
         bitmap_infos_size = 0
