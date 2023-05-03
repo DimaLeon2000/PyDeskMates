@@ -1,3 +1,4 @@
 PyAudio
+pygame
 future
 Pillow
