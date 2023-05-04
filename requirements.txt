@@ -1,4 +1,5 @@
-PyAudio
-pygame
 future
+PyAudio
 Pillow
+pygame
+regex

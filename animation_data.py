@@ -1,29 +1,35 @@
 from animation_reader import FASReader
 import io
-import re
-from PIL import Image, ImageOps
+from pygame import Vector2
+import random
+import regex
+from PIL import Image, ImageOps, ImageFile
 from ast import literal_eval
 
+REGEX_COMMA_SEPARATION = r'(?> ( \( (?> [^()]*(?1)?)* \) ) | ( \[ (?> [^\[\]]*(?2)?)* \] ) | ( { (?> [^{}]*(?3)?)* }' \
+                         r') | ( © (?> [^©]*(?4)?)* © ) | [^,()\[\]{}]+ | (?P<error>[()\[\]]+) )+'
+# a wonky comma separation regular expression, for Python 3.11+
 REGEX_EXTRA_SPRITE = r'(#{1,2})(.+[^,])'  # places a temporary extra sprite
 # (group #1: absolute/relative positioning; group #2: sequence)
-REGEX_FENCING = r'©(?:\[(-?[0-9]+)\,(-?[0-9]+)\])?(\d[lcr]\d[tmb])\,(?:\[(-?[0-9]+)\,(-?[0-9]+)\])?(\d[lcr]\d[tmb])©'
-REGEX_FRAME_RANGE = r'([0-9]+)-([0-9]+)'
-REGEX_GROUP = r'\((.+?)\)'
-REGEX_OFFSET = r'\[(-?[0-9]+,-?[0-9]+)\]'
+REGEX_FENCING = r'©(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])\,(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])©'
+REGEX_FRAME_RANGE = r'(\d+)-(\d+)'
+REGEX_GROUP = r'\((.+)\)(.*)?'
+REGEX_OFFSET = r'\[(-?\d+,-?\d+)\](.*)?'
 REGEX_RANDOM_CHOICES = r'{(.+?)}'
-REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED = r'(\(.+?\)|[a-zA-Z_0-9]+|[0-9]+)%([0-9]+)'
-REGEX_FLOATING = r'§([0-9])\/([0-9])'
-REGEX_REPEAT = r'(\(.+?\)|[a-zA-Z_0-9]+|[0-9]+)\*([0-9])+'  # Repeat the sequence X times
-REGEX_REPEAT_TIMER = r'(\(.+?\)|[a-zA-Z_0-9]+|[0-9]+)\@([0-9])+'  # Repeat the sequence for X frames / X/10 seconds
+REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED = r'(\(.+?\)|[a-zA-Z_0-9]+|\d+)%(\d+)'
+REGEX_FLOATING = r'§(\d)\/(\d)'
+REGEX_REPEAT = r'(\(.+?\)|[a-zA-Z_0-9]+|\d+)\*(\d+)'  # Repeat the sequence X times
+REGEX_REPEAT_TIMER = r'(\(.+?\)|[a-zA-Z_0-9]+|[0-9]+)\@(\d+)'  # Repeat the sequence for X frames / X/10 seconds
 # (the hardcoded frame rate is 10 frames per second)
 REGEX_SOUND = r' !([^,]+)'  # Play sound effect (group #1: sound name)
-REGEX_FLIP_HORIZONTAL = r'<'
-REGEX_FLIP_VERTICAL = r'\^'
+REGEX_FLIP_HORIZONTAL = r'<(.*)?'
+REGEX_FLIP_VERTICAL = r'\^(.*)?'
 REGEX_MASKING = r'\xBD'
 
 
 class FASData:
-    def __init__(self, fas_path):
+    def __init__(self, fas_path, app):
+        self.app = app
         self.reader = FASReader(fas_path)
         # if self.reader != 0:
         #     print('File read!')
@@ -31,44 +37,28 @@ class FASData:
         self.bitmap_infos = self.reader.bitmap_infos
         if hasattr(self.reader, 'touch'):
             self.touch = self.reader.touch
-        self.sequences = {}
         for i in range(self.reader.seq_header['seq_count']):
             sequence = self.reader.read_sequence(i)
-            self.sequences[sequence['name']] = sequence['sequence']
-            print(sequence['name'] + ':', self.sequences[sequence['name']])
-            print('== ' + sequence['name'] + ' (parsed) ==')
-            self.parse_sequence(seq=sequence['name'])
-        self.frames_header = self.reader.frames_header
-        self.frames_bitmap = self.reader.frames_bitmap
-
-    def parse_sequence_part(self, __part):  # INCOMPLETE
-        if re.match(REGEX_GROUP, __part):
-            return re.match(REGEX_GROUP, __part).group(0)
-        elif re.match(REGEX_FENCING, __part):
-            # print(__part, '(FENCING)')
-            return 'FENCING'
-        elif re.match(REGEX_OFFSET, __part):
-            print(literal_eval(re.match(REGEX_OFFSET, __part).groups()[0]), 'OFFSET')
-            return literal_eval(re.match(REGEX_OFFSET, __part).groups()[0])
-        else:
-            return __part
-
-    def parse_sequence(self, seq):  # INCOMPLETE
-        parts = re.findall(r'(?:\((?:[^()].*?)*\)|\[(?:[^[\]].*?)*]|{(?:[^{}].*?)*}|©(?:[^©].*?)*©|[^,])+',
-                           self.sequences[seq])
-        for x in parts:
-            x = self.parse_sequence_part(x)
-            print(x)
-            # if re.match(r'\[([0-9\,\-]+)\]', x): #check if
-            #     pos_offset = literal_eval(re.match(r'\[([0-9\,\-]+)\]', x).group(1))
-            #     print(pos_offset)
-            # print(x)
-            # pass
-        return parts
+            self.app.sequences[sequence['name']] = sequence['sequence']
+            # print(sequence['name'] + ':', self.app.sequences[sequence['name']])
+            # print('== ' + sequence['name'] + ' (parsed) ==')
+            # print(self.get_sequence(seq=sequence['name']))
+        self.frames = {}
+        for i in range(self.reader.frames_header['count']):
+            self.frames[self.reader.frames_header['id'][i]] = {
+                'bitmap': self.reader.frames_bitmap[i],
+                'info': self.reader.frames_header['info'][i]
+            }
+        for i in self.frames:
+            print(i)
+            self.app.frames[i] = self.get_frame_masked(i)
+        self.reader.close()
+        # self.app.frames_header = self.reader.frames_header
+        # self.app.frames_bitmap = self.reader.frames_bitmap
 
     def get_frame_bitmap(self, __frame, mask):
-        bitmap_info = self.bitmap_infos[self.frames_header['info'][__frame] * 2 + int(mask)]
-        bitmap = self.frames_bitmap[__frame]
+        bitmap_info = self.bitmap_infos[self.frames[__frame]['info'] * 2 + int(mask)]
+        bitmap = self.frames[__frame]['bitmap']
         header = b'BM' + int(len(bitmap_info) + len(bitmap) + 14).to_bytes(length=4, byteorder='little', signed=False) \
             + (0).to_bytes(length=2, byteorder='little', signed=False) \
             + (0).to_bytes(length=2, byteorder='little', signed=False) \
@@ -77,7 +67,110 @@ class FASData:
         return data
 
     def get_frame_masked(self, __frame):
-        color = Image.open(io.BytesIO(self.get_frame_bitmap(__frame, mask=False))).convert('RGBA')
+        color_data = self.get_frame_bitmap(__frame, mask=False)
+        ImageFile.LOAD_TRUNCATED_IMAGES = True
+        color = Image.open(io.BytesIO(color_data)).convert('RGBA')
         mask = ImageOps.invert(Image.open(io.BytesIO(self.get_frame_bitmap(__frame, mask=True))).convert('L'))
         color.putalpha(mask)
         return color
+
+
+def parse_sequence_part(__part, app, sprite):  # INCOMPLETE
+    if not(__part.__contains__(' !')):
+        __part = __part.strip()
+    if regex.match(REGEX_RANDOM_CHOICES, __part):
+        choices_weighted = regex.match(REGEX_RANDOM_CHOICES, __part).group(1).split('|')
+        choices = []
+        weights = []
+        for i in choices_weighted:
+            if regex.match(REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED, i):
+                choices.append(regex.match(REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED, i).group(1))
+                weights.append(regex.match(REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED, i).group(2))
+            else:
+                choices.append(i)
+                weights.append(1)
+        result = random.choices(choices, weights)[0]
+        return parse_sequence_part(result, app, sprite)
+    elif regex.match(REGEX_REPEAT, __part):
+        str_groups = regex.match(REGEX_REPEAT, __part).groups()
+        return [parse_sequence_part(str_groups[0], app, sprite) for i in range(int(str_groups[1]))]
+    elif regex.match(REGEX_GROUP, __part):
+        # print('LVL 1 GROUP:', __part)
+        # print('LVL 2 GROUP:', regex.match(REGEX_GROUP, __part).group(1))
+        # print(self.parse_sequence(regex.match(REGEX_GROUP, __part).group(1), sprite))
+        return [parse_sequence(regex.match(REGEX_GROUP, __part).group(1), app, sprite),
+                parse_sequence_part(regex.match(REGEX_GROUP, __part).group(2), app, sprite)]
+    elif regex.match(REGEX_FLIP_HORIZONTAL, __part):
+        print(regex.match(REGEX_FLIP_HORIZONTAL, __part).group(1))
+        return ['FLIP_H', parse_sequence_part(regex.match(REGEX_FLIP_HORIZONTAL, __part).group(1), app, sprite)]
+    elif regex.match(REGEX_FLIP_VERTICAL, __part):
+        return ['FLIP_V', parse_sequence_part(regex.match(REGEX_FLIP_HORIZONTAL, __part).group(1), app, sprite)]
+    elif regex.match(REGEX_FRAME_RANGE, __part):
+        frame_start, frame_end = int(regex.match(REGEX_FRAME_RANGE, __part).groups()[0]),\
+            int(regex.match(REGEX_FRAME_RANGE, __part).groups()[1])
+        frame_range = range(frame_start, (frame_end - 1) if (frame_end < frame_start) else (frame_end + 1),
+                            -1 if (frame_end < frame_start) else 1)
+        return [parse_sequence_part(str(i), app, sprite) for i in frame_range]
+    elif regex.match(REGEX_FENCING, __part):
+        # print(regex.match(REGEX_FENCING, __part))
+        # print(__part, '(FENCING)')
+        return 'FENCING'
+    elif regex.match(REGEX_OFFSET, __part):
+        offset = list(literal_eval(regex.match(REGEX_OFFSET, __part).group(1)))
+        offset[1] *= -1
+        part = regex.match(REGEX_OFFSET, __part).group(2)
+        return [Vector2(offset), parse_sequence_part(part, app, sprite)]
+    elif regex.match(REGEX_SOUND, __part):
+        return 'SOUND: ' + regex.match(REGEX_SOUND, __part).group(1)
+    elif __part.isnumeric():
+        # print(__part)
+        return int(__part)
+    else:
+        # return get_sequence(__part, app, sprite)
+        return __part
+
+
+def parse_sequence(sequence, app, sprite):
+    level = 0
+    fence_open_close = 0  # 0 - open; 1 - close
+    parts_orig = sequence.split(sep=',')  # old-school method
+    # print(parts_orig)
+    parts = []
+    cur_part = ''
+    for i in parts_orig:
+        if level > 0:
+            cur_part = cur_part + ',' + i
+        else:
+            cur_part = i
+        level += i.count('(') + i.count('[') + i.count('{')
+        level -= i.count(')') + i.count(']') + i.count('}')
+        if i.count('\xA9') >= 1:
+            if fence_open_close == 1:
+                level -= i.count('\xA9')
+                fence_open_close = 0
+            else:
+                level += i.count('\xA9')
+                fence_open_close = 1
+        # print(level, end=' ')
+        # cur_part = cur_part + ',' + i
+        if level == 0:
+            parts.append(cur_part)
+    # print('')
+    # print('PARTS:', parts)
+    # parts = regex.findall(REGEX_COMMA_SEPARATION, sequence)
+    # print('ORIG:',sequence,'\nPARTS:',parts)
+    parts_parsed = []
+    for x in parts:
+        parts_parsed.append(parse_sequence_part(x, app, sprite))
+        # if regex.match(r'\[([0-9\,\-]+)\]', x): #check if
+        #     pos_offset = literal_eval(regex.match(r'\[([0-9\,\-]+)\]', x).group(1))
+        #     print(pos_offset)
+        # print(x)
+        # pass
+    # print('PARSED PARTS:', parts_parsed)
+    return parts_parsed
+
+
+def get_sequence(seq, app, sprite):  # INCOMPLETE
+    sequence = app.sequences[seq]
+    return parse_sequence(sequence, app, sprite)

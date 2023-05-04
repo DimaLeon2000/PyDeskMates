@@ -1,11 +1,11 @@
-import os
+# import os
 import struct
 # import time
 
 
 class FASReader:
     def __init__(self, fas_path):
-        filename = os.path.splitext(os.path.basename(fas_path))[0]
+        # filename = os.path.splitext(os.path.basename(fas_path))[0]
         self.fas_file = open(fas_path, 'rb')
         self.header = self.read_header()
         self.bitmap_infos = []
@@ -96,13 +96,13 @@ class FASReader:
         self.seq_header = self.read_seq_header(self.seq_offset)
         self.seq_directory = self.read_seq_directory(self.seq_offset + self.seq_header['header_size'])
         if self.header['version'] >= 1:  # checksum (format version >= 1)
-            checksum = self.read_1_byte(self.seq_offset + self.seq_header['total_size'])
-            name_sum = 0
-            for i in range(len(filename)):
-                name_sum += ord(filename.upper()[i])
-            name_sum %= 256
+            self.checksum = self.read_1_byte(self.seq_offset + self.seq_header['total_size'])
+            # name_sum = 0
+            # for i in range(len(filename)):
+            #     name_sum += ord(filename.upper()[i])
+            # name_sum %= 256
             # print('Checksum', 'OK!' if name_sum == checksum else 'FAILED!')
-            assert(name_sum == checksum)
+            # assert(name_sum == checksum)
 
         self.frames_header = self.read_frames_header(self.seq_offset + self.seq_header['total_size']
                                                      + (self.header['version'] >= 1))
@@ -134,7 +134,7 @@ class FASReader:
             'id': [self.read_2_bytes(offset=__offset + 4 + i * 2)
                    for i in range(self.read_4_bytes(offset=__offset))],
             'info': [self.read_1_byte(offset=__offset + 4 + self.read_4_bytes(offset=__offset) * 2 + i)
-                    for i in range(self.read_4_bytes(offset=__offset))]
+                     for i in range(self.read_4_bytes(offset=__offset))]
         }
 
     def read_sequence(self, __index):

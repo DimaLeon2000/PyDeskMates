@@ -1,10 +1,10 @@
 from audio_data import WASData
-from animation_data import FASData
+from animation_data import *
 # from bit_reader import *
-# import io
 # import PIL
 import pyaudio
 import pygame as pg
+import pygame.freetype as ft
 from settings import *
 import struct
 import sys
@@ -18,9 +18,26 @@ LINE_UP = '\033[1A'
 LINE_CLEAR = '\x1b[2K'
 
 
-def pilImageToSurface(pilImage):
+def pil_image_to_surface(pil_image):
     return pg.image.frombytes(
-        pilImage.tobytes(), pilImage.size, pilImage.mode).convert_alpha()
+        pil_image.tobytes(), pil_image.size, pil_image.mode).convert_alpha()
+
+
+def flatten(spam):
+    for x in spam:
+        if hasattr(x, '__iter__') and not isinstance(x, str) and not isinstance(x, pg.Vector2):
+            for y in flatten(x):
+                yield y
+        else:
+            if x != '':
+                yield x
+
+
+def sort_dict(my_dict):
+    dict_keys = list(my_dict.keys())
+    dict_keys.sort()
+    return {i: my_dict[i] for i in dict_keys}
+
 
 def debug_was_tool(audio_path):  # for reading .WAS files, that contain 16-bit PCM audio data
     chunk_length = 32  # for buffering
@@ -76,8 +93,8 @@ def debug_was_tool(audio_path):  # for reading .WAS files, that contain 16-bit P
             print("Unknown Option Selected!")
 
 
-def debug_fas_tool(anim_path):
-    return FASData(anim_path)
+def debug_fas_tool(anim_path, app):
+    return FASData(anim_path, app)
 
 
 def fas_deflate(anim_path):
@@ -88,14 +105,14 @@ def fas_deflate(anim_path):
     faz_file = 0
     packed_data = zlib.compress(anim_data)
     try:
-        faz_file = open(anim_name + '.FAZ', 'wb+')
+        faz_file = open(anim_name.upper() + '.FAZ', 'wb+')
         faz_file.write(struct.pack('i', len(anim_data)))
         faz_file.write(packed_data)
     finally:
         faz_file.close()
 
 
-def faz_inflate(packed_path):
+def faz_inflate(packed_path, save_to_file):
     anim_name = os.path.splitext(os.path.basename(packed_path))[0]
     packed_file = open(packed_path, 'rb')
     packed_file.seek(4)
@@ -104,11 +121,15 @@ def faz_inflate(packed_path):
     anim_data = zlib.decompress(packed_data)
     anim_file = 0
     # if not (os.path.exists(anim_name + '.FAS')):
-    try:
-        anim_file = open(anim_name + '.FAS', 'wb+')
-        anim_file.write(anim_data)
-    finally:
-        anim_file.close()
+    if save_to_file:
+        try:
+            anim_file = open(anim_name.upper() + '.FAS', 'wb+')
+            anim_file.write(anim_data)
+        finally:
+            anim_file.close()
+            return anim_name.upper() + '.FAS'
+    else:
+        return anim_data
 
 
 class SpriteUnit(pg.sprite.Sprite):
@@ -116,19 +137,22 @@ class SpriteUnit(pg.sprite.Sprite):
         self.handler = handler
         self.x, self.y = x, y
         super().__init__(handler.group)
-        self.image_ind = frame_num
-        self.image = self.handler.images[frame_num]
+        self.image_ind = handler.app.frame_num
+        self.image = self.handler.images[handler.app.frame_num]
         self.rect = self.image.get_rect()
+        print(self.rect)
+        self.sequence = ''
 
     def update(self):
-        self.rect.center = self.x, self.y
+        # self.rect.center = self.x, self.y
         self.image = self.handler.images[self.image_ind]
 
 
 class SpriteHandler:
     def __init__(self, app):
         self.app = app
-        self.images = [pilImageToSurface(test_fas.get_frame_masked(i)) for i in range(test_fas.frames_header['count'])]
+        self.images = [pil_image_to_surface(app.frames[i])
+                       for i in app.frames]
         # self.mask = pg.image.load(io.BytesIO(get_frame_bitmap(frame_num, True)))
         self.group = pg.sprite.Group()
         self.sprites = [SpriteUnit(self, WIDTH // 2, HEIGHT // 2)]
@@ -142,17 +166,34 @@ class SpriteHandler:
 
 class App:
     def __init__(self):
+        self.sequences = {}
+        self.frames = {}
         pg.init()
         self.screen = pg.display.set_mode(WIN_SIZE)
+        pg.display.set_caption('DeskMates sprite test')
         self.clock = pg.time.Clock()
-        self.font = pg.freetype.SysFont('Courier New', FONT_SIZE)
+        self.font = ft.SysFont('Courier New', FONT_SIZE)
         self.dt = 0.0
+        FASData(fileName, self)
+        # for i in range(len(list(self.sequences.keys()))):
+        #     seq_name = list(self.sequences.keys())[i]
+        #     print(seq_name + ':', self.sequences[seq_name])
+        #     print('== ' + seq_name + ' (parsed) ==')
+        #     print(self.test_fas.get_sequence(seq_name))
+        sort_dict(self.frames)
+        self.frame_num = list(self.frames.keys()).index(frame_id)
         self.sprite_handler = SpriteHandler(self)
-        self.sprite_handler.sprites[0].sequence = 'ab'
+        self.sprite_handler.sprites[0].sequence = 'common_sword_training_short_flipped'
+        # print(self.sequences[self.sprite_handler.sprites[0].sequence])
+        # self.sprite_handler.sprites[0].cur_sequence = flatten(get_sequence(
+        #     self.sprite_handler.sprites[0].sequence, self,
+        #     self.sprite_handler.sprites[0]))
+        # print(list(self.sprite_handler.sprites[0].cur_sequence))
 
     def update(self):
         pg.display.flip()
         self.sprite_handler.update()
+        # print(self.sprite_handler.sprites[0].cur_sequence
         # self.dt = self.clock.tick() * 0.001
         self.dt = self.clock.tick(10)
 
@@ -164,16 +205,18 @@ class App:
     def draw_fps(self):
         fps_text = f'{self.clock.get_fps() :.0f} FPS'
         seq_text = f'Current sequence: {self.sprite_handler.sprites[0].sequence}'
-        frame_text = f'Current frame: {test_fas.frames_header["id"][self.sprite_handler.sprites[0].image_ind]:04d}'
-        self.font.render_to(self.screen, (8, 8), text=fps_text, fgcolor='black')
-        self.font.render_to(self.screen, (8, 8+FONT_SIZE), text=seq_text, fgcolor='black')
-        self.font.render_to(self.screen, (8, 8+FONT_SIZE*2), text=frame_text, fgcolor='black')
+        frame_text = f'Current frame: {list(app.frames.keys())[self.sprite_handler.sprites[0].image_ind]:04d}'
+        self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 3), text=fps_text, fgcolor='black')
+        self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 2), text=seq_text, fgcolor='black')
+        self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE), text=frame_text, fgcolor='black')
+        self.font.render_to(self.screen, (8, HEIGHT - 16), text='Controls: ← - prev. frame; → - next frame; home - '
+                                                                'first frame; end - last frame', fgcolor='black')
 
     def check_events(self):
         for e in pg.event.get():
             if e.type == pg.KEYDOWN:
                 if e.key == pg.K_RIGHT:
-                    if self.sprite_handler.sprites[0].image_ind < test_fas.frames_header['count'] - 1:
+                    if self.sprite_handler.sprites[0].image_ind < len(self.frames) - 1:
                         self.sprite_handler.sprites[0].image_ind += 1
                 elif e.key == pg.K_LEFT:
                     if self.sprite_handler.sprites[0].image_ind > 0:
@@ -181,7 +224,7 @@ class App:
                 elif e.key == pg.K_HOME:
                     self.sprite_handler.sprites[0].image_ind = 0
                 elif e.key == pg.K_END:
-                    self.sprite_handler.sprites[0].image_ind = test_fas.frames_header['count'] - 1
+                    self.sprite_handler.sprites[0].image_ind = len(self.frames) - 1
             if e.type == pg.QUIT or (e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE):
                 pg.quit()
                 sys.exit()
@@ -197,11 +240,11 @@ if __name__ == '__main__':
     # Regex: ,\s*(?![^()]*\))(?![^\[\]]*\])
     # left=min(pnt1[0],(pnt2.[0]-frame_width))
     # top=min(-pnt1[1],(-pnt2.[1]-frame_width))
-    test_fas = FASData(r'TEST_FILE.FAS')
+    # test_fas = FASData('test\\Johlee\\johlee_s_floatupgrade.FAS')
     # frame_num = test_fas.frames_header['count'] - 1
-    # frame_id = 4000;
-    # frame_num = test_fas.frames_header['id'].index(frame_id)
-    frame_num = 0
+    frame_id = 0
+    fileName = 'TEST_FILE.FAS'
+    # frame_num = 0
     app = App()
     app.run()
     # root = tkinter.Tk()
