@@ -50,7 +50,6 @@ class FASData:
                 'info': self.reader.frames_header['info'][i]
             }
         for i in self.frames:
-            print(i)
             self.app.frames[i] = self.get_frame_masked(i)
         self.reader.close()
         # self.app.frames_header = self.reader.frames_header
