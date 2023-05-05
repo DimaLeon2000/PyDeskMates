@@ -74,7 +74,7 @@ class FASData:
         return color
 
 
-def parse_sequence_part(__part, app, sprite):  # INCOMPLETE
+def parse_sequence_part(__part, app):  # INCOMPLETE
     if not(__part.__contains__(' !')):
         __part = __part.strip()
     if regex.match(REGEX_RANDOM_CHOICES, __part):
@@ -84,32 +84,43 @@ def parse_sequence_part(__part, app, sprite):  # INCOMPLETE
         for i in choices_weighted:
             if regex.match(REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED, i):
                 choices.append(regex.match(REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED, i).group(1))
-                weights.append(regex.match(REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED, i).group(2))
+                weights.append(int(regex.match(REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED, i).group(2)))
             else:
                 choices.append(i)
                 weights.append(1)
         result = random.choices(choices, weights)[0]
-        return parse_sequence_part(result, app, sprite)
+        return parse_sequence_part(result, app)
     elif regex.match(REGEX_REPEAT, __part):
         str_groups = regex.match(REGEX_REPEAT, __part).groups()
-        return [parse_sequence_part(str_groups[0], app, sprite) for i in range(int(str_groups[1]))]
+        return [parse_sequence_part(str_groups[0], app) for i in range(int(str_groups[1]))]
     elif regex.match(REGEX_GROUP, __part):
+        res0 = regex.match(REGEX_GROUP, __part).group(1)
+        res1 = regex.match(REGEX_GROUP, __part).group(2)
         # print('LVL 1 GROUP:', __part)
         # print('LVL 2 GROUP:', regex.match(REGEX_GROUP, __part).group(1))
-        # print(self.parse_sequence(regex.match(REGEX_GROUP, __part).group(1), sprite))
-        return [parse_sequence(regex.match(REGEX_GROUP, __part).group(1), app, sprite),
-                parse_sequence_part(regex.match(REGEX_GROUP, __part).group(2), app, sprite)]
+        result = [parse_sequence(res0, app)]
+        if res1 != '':
+            result.append(parse_sequence_part(res1, app))
+        return result
     elif regex.match(REGEX_FLIP_HORIZONTAL, __part):
-        print(regex.match(REGEX_FLIP_HORIZONTAL, __part).group(1))
-        return ['FLIP_H', parse_sequence_part(regex.match(REGEX_FLIP_HORIZONTAL, __part).group(1), app, sprite)]
+        # print(regex.match(REGEX_FLIP_HORIZONTAL, __part).group(1))
+        res1 = regex.match(REGEX_FLIP_HORIZONTAL, __part).group(1)
+        result =['FLIP_H']
+        if res1 != '':
+            result.append(parse_sequence_part(res1, app))
+        return result
     elif regex.match(REGEX_FLIP_VERTICAL, __part):
-        return ['FLIP_V', parse_sequence_part(regex.match(REGEX_FLIP_HORIZONTAL, __part).group(1), app, sprite)]
+        res1 = regex.match(REGEX_FLIP_VERTICAL, __part).group(1)
+        result =['FLIP_V']
+        if res1 != '':
+            result.append(parse_sequence_part(res1, app))
+        return result
     elif regex.match(REGEX_FRAME_RANGE, __part):
         frame_start, frame_end = int(regex.match(REGEX_FRAME_RANGE, __part).groups()[0]),\
             int(regex.match(REGEX_FRAME_RANGE, __part).groups()[1])
         frame_range = range(frame_start, (frame_end - 1) if (frame_end < frame_start) else (frame_end + 1),
                             -1 if (frame_end < frame_start) else 1)
-        return [parse_sequence_part(str(i), app, sprite) for i in frame_range]
+        return [parse_sequence_part(str(i), app) for i in frame_range]
     elif regex.match(REGEX_FENCING, __part):
         # print(regex.match(REGEX_FENCING, __part))
         # print(__part, '(FENCING)')
@@ -118,18 +129,19 @@ def parse_sequence_part(__part, app, sprite):  # INCOMPLETE
         offset = list(literal_eval(regex.match(REGEX_OFFSET, __part).group(1)))
         offset[1] *= -1
         part = regex.match(REGEX_OFFSET, __part).group(2)
-        return [Vector2(offset), parse_sequence_part(part, app, sprite)]
+        return [{'offset': Vector2(offset)}, parse_sequence_part(part, app)]
     elif regex.match(REGEX_SOUND, __part):
-        return 'SOUND: ' + regex.match(REGEX_SOUND, __part).group(1)
+        return {'sound': regex.match(REGEX_SOUND, __part).group(1)}
     elif __part.isnumeric():
         # print(__part)
         return int(__part)
     else:
-        # return get_sequence(__part, app, sprite)
-        return __part
+        # print(get_sequence(__part, app))
+        return get_sequence(__part, app)
+        # return __part
 
 
-def parse_sequence(sequence, app, sprite):
+def parse_sequence(sequence, app):
     level = 0
     fence_open_close = 0  # 0 - open; 1 - close
     parts_orig = sequence.split(sep=',')  # old-school method
@@ -160,16 +172,21 @@ def parse_sequence(sequence, app, sprite):
     # print('ORIG:',sequence,'\nPARTS:',parts)
     parts_parsed = []
     for x in parts:
-        parts_parsed.append(parse_sequence_part(x, app, sprite))
+        part_parsed = parse_sequence_part(x, app)
+        if isinstance(part_parsed, list):
+            [parts_parsed.append(part_parsed[i]) for i in range(len(part_parsed))]
+        else:
+            parts_parsed.append(part_parsed)
         # if regex.match(r'\[([0-9\,\-]+)\]', x): #check if
         #     pos_offset = literal_eval(regex.match(r'\[([0-9\,\-]+)\]', x).group(1))
         #     print(pos_offset)
         # print(x)
         # pass
     # print('PARSED PARTS:', parts_parsed)
+    # return [parts_parsed[i] for i in range(len(parts_parsed))]
     return parts_parsed
 
 
-def get_sequence(seq, app, sprite):  # INCOMPLETE
+def get_sequence(seq, app):  # INCOMPLETE
     sequence = app.sequences[seq]
-    return parse_sequence(sequence, app, sprite)
+    return parse_sequence(sequence, app)
