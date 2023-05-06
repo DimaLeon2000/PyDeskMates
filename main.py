@@ -1,7 +1,7 @@
 from audio_data import WASData
 from animation_data import *
 # from bit_reader import *
-# import PIL
+# from PIL import ImageGrab
 import pyaudio
 import pygame as pg
 import pygame.freetype as ft
@@ -18,19 +18,16 @@ LINE_UP = '\033[1A'
 LINE_CLEAR = '\x1b[2K'
 
 
-def pil_image_to_surface(pil_image):
+def pil_image_to_surface(pil_image, alpha=False):
     return pg.image.frombytes(
-        pil_image.tobytes(), pil_image.size, pil_image.mode).convert_alpha()
+        pil_image.tobytes(), pil_image.size, pil_image.mode).convert_alpha() if alpha else pg.image.frombytes(
+        pil_image.tobytes(), pil_image.size, pil_image.mode).convert()
 
 
-def flatten(spam):
-    for x in spam:
-        if hasattr(x, '__iter__') and not isinstance(x, str) and not isinstance(x, dict):
-            for y in flatten(x):
-                yield y
-        else:
-            if x != '':
-                yield x
+def list_length_recursive(my_list):
+    if my_list and (isinstance(my_list, list) or isinstance(my_list, int)):
+        return 1 + list_length_recursive(my_list[1:])
+    return 0
 
 
 def sort_dict(my_dict):
@@ -94,7 +91,7 @@ def debug_was_tool(audio_path):  # for reading .WAS files, that contain 16-bit P
 
 
 def debug_fas_tool(anim_path, app):
-    return FASData(anim_path, app)
+    return FASData(anim_path, app, False)
 
 
 def fas_deflate(anim_path):
@@ -133,66 +130,106 @@ def faz_inflate(packed_path, save_to_file):
 
 
 class SpriteUnit(pg.sprite.Sprite):
-    def __init__(self, handler, x, y):
+    def __init__(self, handler, x, y, temp):
         self.handler = handler
         self.x, self.y = x, y
         super().__init__(handler.group)
-        self.image_ind = handler.app.frame_num
-        self.image = self.handler.images[handler.app.frame_num]
+        self.image_ind = 0
+        self.image = self.handler.images[self.image_ind]
         self.rect = self.image.get_rect()
-        self.flips = 0
+        self.rect.center = self.x, self.y
+        self.fence_rect = pg.rect.Rect(0, 0, WIDTH, HEIGHT)
+        self.flags = 0  # (1 - horizontal flip, 2 - vertical flip, 4 - masking)
+        self.temporary = temp
         # print(self.rect)
         self.seq_name = ''
-        self.seq_data = []
-        self.seq_level = 0
+        self.seq_data = [[]]
+        self.seq_data_sub = ''
+        self.repeats = 0
+        self.timer_frames = 0
+        self.repeats_highest_level = 0
 
     def flip(self):
-        self.image = pg.transform.flip(self.handler.images[self.image_ind], bool(self.flips & 1), bool(self.flips & 2))
+        self.image = pg.transform.flip(self.handler.images[self.image_ind], bool(self.flags & 1), bool(self.flags & 2))
         self.rect = self.image.get_rect()
 
     def update(self):
         x = ''
-        if (len(self.seq_data[self.seq_level])) > 0:
-            while not(isinstance(x, int)):
-                x = self.seq_data[self.seq_level].pop(0)
-                if isinstance(x, list):
-                    self.seq_level += 1
+        while not(isinstance(x, int)):
+            if (len(self.seq_data[-1])) > 0:
+                x = self.seq_data[-1].pop(0)
+                if isinstance(x, list):  # grouping
                     self.seq_data.append(x)
-                if isinstance(x, str):
-                    if x == 'FLIP_H':
-                        self.flips ^= 1
-                    if x == 'FLIP_V':
-                        self.flips ^= 2
-                if isinstance(x, dict):
-                    if 'sound' in x:
+                elif isinstance(x, str):  # sprite modifications
+                    self.seq_data.append(get_sequence(x, self.handler.app))
+                elif isinstance(x, dict):
+                    if 'toggle_flag' in x:  # sprite modification flags
+                        self.flags ^= x['toggle_flag']
+                    elif 'repeats' in x and 'seq' in x:
+                        # self.seq_data_sub = x['seq']
+                        # self.repeats = x['repeats']
+                        self.repeats_highest_level = len(self.seq_data)
+                        self.seq_data.append([x['seq']] * x['repeats'])
+                    elif 'timer_frames' in x and 'seq' in x:  # WIP
+                        self.seq_data_sub = x['seq']
+                        self.timer_frames = x['timer_frames']
+                        self.repeats_highest_level = len(self.seq_data)
+                        self.seq_data.append([])
+                    elif 'fence' in x:  # sprite fencing
+                        self.fence_rect = x['fence']
+                        self.x = min(max(self.x, self.fence_rect.left), (self.fence_rect.left + self.fence_rect.width
+                                                                         - self.rect.width))
+                        self.y = min(max(self.y, self.fence_rect.top), (self.fence_rect.top + self.fence_rect.height
+                                                                        - self.rect.height))
+                        # print(list(self.fence_rect))
+                    elif 'sound' in x:  # playing sound (not functioning)
                         print(x)
                         # print(self.handler.app.sounds[x['sound'].upper()].get_raw()[:64])
                         # self.handler.app.sounds[x['sound'].upper()].play()
-                    if 'offset' in x:
+                    elif 'offset' in x:  # offsetting sprite
                         self.x += x['offset'].x
                         self.y += x['offset'].y
-                if isinstance(x, int):
+                elif isinstance(x, int):
                     self.image_ind = list(self.handler.app.frames.keys()).index(x)
-        self.flip()
-        self.rect.center = self.x, self.y
-        if not self.seq_data[self.seq_level]:
-            if self.seq_level >= 1:
-                self.seq_level -= 1
-                self.seq_data.pop()
             else:
-                # self.seq_name = 'idle'
-                # self.seq_data[0] = get_sequence(
-                #     self.seq_name, self.handler.app)
-                pass
+                if len(self.seq_data) >= 2:
+                    self.seq_data.pop()
+                else:
+                    if self.temporary:
+                        self.handler.sprites.pop(self.handler.sprites.index(self))
+                        self.kill()
+                    else:
+                        self.seq_name = 'idle'
+                        self.seq_data[0] = get_sequence(self.seq_name, self.handler.app)
+                        # pass
+        # print(self.seq_data_sub)
+        # if (len(self.seq_data) < self.repeats_highest_level) and (self.repeats > 0 or self.timer_frames > 0):
+        #     temp_seq = self.seq_data_sub
+        #     self.seq_data.append([temp_seq])
+        #     if self.repeats > 0:
+        #         self.repeats -= 1
+        # if ((self.repeats > 0) and ((len(self.seq_data)) <= self.repeats_highest_level)):
+        #     self.seq_data.append(self.seq_data_sub)
+        #     print(self.seq_data_sub)
+        #     self.repeats -= 1
+        # print(self.repeats)
+        if self.timer_frames > 0:
+            self.timer_frames -= 1
+        self.flip()
+        self.rect.topleft = self.x, self.y
 
 
 class SpriteHandler:
     def __init__(self, app):
         self.app = app
-        self.images = [pil_image_to_surface(app.frames[i])
+        self.images = [pil_image_to_surface(app.frames[i], True)
                        for i in app.frames]
+        self.images_extra = []
         self.group = pg.sprite.Group()
-        self.sprites = [SpriteUnit(self, WIDTH // 2, HEIGHT // 2)]
+        self.sprites = []
+
+    def add_sprite(self, x, y, temp):
+        self.sprites.append(SpriteUnit(handler=self, x=x, y=y, temp=temp))
 
     def update(self):
         self.group.update()
@@ -203,48 +240,89 @@ class SpriteHandler:
 
 class App:
     def __init__(self):
-        pg.mixer.init(frequency=4000, size=-16, channels=1)
+        # pg.mixer.init(frequency=4000, size=-16, channels=1)
         pg.init()
         self.sequences = {}
+        self.sequences_extra = {}
         self.frames = {}
+        self.frames_extra = {}
         self.sounds = {}
         self.screen = pg.display.set_mode(WIN_SIZE)
         pg.display.set_caption('DeskMates sprite test')
         self.clock = pg.time.Clock()
         self.font = ft.SysFont('Courier New', FONT_SIZE)
         self.dt = 0.0
-        FASData('TEST_FILE.FAS', self)
+        loading_text_rect = self.font.get_rect('LOADING...', size=40)
+        loading_text_rect.center = self.screen.get_rect().center
+        self.font.render_to(self.screen, loading_text_rect, text='LOADING...', fgcolor='white',
+                            style=ft.STYLE_STRONG + ft.STYLE_WIDE, rotation=0, size=40)
+        pg.display.flip()
+        FASData(workDir + curChar + '\\Data\\common_demo.FAS', self)
+        FASData(workDir + curChar + '\\Data\\common_enter_demo.FAS', self)
+        FASData(workDir + curChar + '\\Data\\touch_demo.FAS', self)
+        FASData(workDir + curChar + '\\Data\\common.FAS', self)
+        FASData(workDir + curChar + '\\Data\\common_enter.FAS', self)
+        FASData(workDir + curChar + '\\Data\\touch.FAS', self)
+        # FASData('CARD.FAS', self)
         # WASData(workDir + curChar + '\\Data\\Deskmate.WAS', self)
         sort_dict(self.frames)
         self.frame_num = list(self.frames.keys()).index(frame_id)
         self.sprite_handler = SpriteHandler(self)
-        self.sprite_handler.sprites[0].seq_name = 'do'
-        self.sprite_handler.sprites[0].seq_data = [get_sequence(self.sprite_handler.sprites[0].seq_name, self)]
+        self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2, False)
+        # self.sprite_handler.sprites[0].seq_name = 'do'
+        self.sprite_handler.sprites[0].seq_name = 'common_sword_training_long'
+        self.sprite_handler.sprites[0].temporary = False
+        self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.upper()]]
+        # print(get_sequence(self.sprite_handler.sprites[0].seq_name.upper(), self))
+        # print(self.sprite_handler.sprites[0].seq_data)
 
     def update(self):
         pg.display.flip()
-        self.sprite_handler.update()
+        # self.background = pil_image_to_surface(ImageGrab.grab())
+        if hasattr(self, 'sprite_handler'):
+            self.sprite_handler.update()
         self.dt = self.clock.tick(10)
 
     def draw(self):
         self.screen.fill('gray64')
-        self.sprite_handler.draw()
-        self.draw_fps()
+        # self.screen.blit(self.background, (0,0))
+        if hasattr(self, 'sprite_handler'):
+            for i in self.sprite_handler.sprites:
+                self.sprite_handler.draw()
+                # pg.draw.rect(self.screen, color='pink', rect=i.rect)
+                pg.draw.lines(self.screen, color='red2', closed=True,
+                              points=[i.fence_rect.topleft, i.fence_rect.topright,
+                                      i.fence_rect.bottomright, i.fence_rect.bottomleft], width=1)  # fencing region
+                pg.draw.lines(self.screen, color='green', closed=True,
+                              points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft], width=1)
+                self.font.render_to(self.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 3),
+                                    text=f'{self.sprite_handler.sprites.index(i)}', fgcolor='black')
+                self.font.render_to(self.screen, (i.rect.topleft[0] + 3, i.rect.topleft[1] + 4),
+                                    text=f'{self.sprite_handler.sprites.index(i)}', fgcolor='black')
+                self.font.render_to(self.screen, (i.rect.topleft[0] + 5, i.rect.topleft[1] + 4),
+                                    text=f'{self.sprite_handler.sprites.index(i)}', fgcolor='black')
+                self.font.render_to(self.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 5),
+                                    text=f'{self.sprite_handler.sprites.index(i)}', fgcolor='black')
+                self.font.render_to(self.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
+                                    text=f'{self.sprite_handler.sprites.index(i)}', fgcolor='white')
+        # self.draw_fps()
 
     def draw_fps(self):
         fps_text = f'{self.clock.get_fps() :.0f} FPS'
-        seq_text = f'Current sequence: {self.sprite_handler.sprites[0].seq_name}'
-        frame_text = f'Current frame: {list(app.frames.keys())[self.sprite_handler.sprites[0].image_ind]:04d}'
-        self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 4), text=fps_text, fgcolor='black')
-        self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 3), text=seq_text, fgcolor='black')
-        self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 2),
-                            text='Sequence level: '+str(self.sprite_handler.sprites[0].seq_level), fgcolor='black')
-        self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE), text=frame_text, fgcolor='black')
+        self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE), text=fps_text, fgcolor='black')
+        if hasattr(self, 'sprite_handler'):
+            seq_text = f'Current sequence: {self.sprite_handler.sprites[0].seq_name}'
+            frame_text = f'Current frame: {list(app.frames.keys())[self.sprite_handler.sprites[0].image_ind]:04d}'
+            self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 5),
+                                text=f'Sprites: {len(self.sprite_handler.sprites)}', fgcolor='black')
+            self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 4), text=seq_text, fgcolor='black')
+            self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 3),
+                                text='Sequence level: '+str(self.sprite_handler.sprites[0].seq_level), fgcolor='black')
+            self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 2), text=frame_text, fgcolor='black')
         self.font.render_to(self.screen, (8, HEIGHT - 16), text='Controls: ← - prev. frame; → - next frame; home - '
                                                                 'first frame; end - last frame', fgcolor='black')
 
-    @staticmethod
-    def check_events():
+    def check_events(self):
         for e in pg.event.get():
             # if e.type == pg.KEYDOWN:
             #     if e.key == pg.K_RIGHT:
@@ -272,8 +350,8 @@ if __name__ == '__main__':
     # left=min(pnt1[0],(pnt2.[0]-frame_width))
     # top=min(-pnt1[1],(-pnt2.[1]-frame_width))
     frame_id = 3
-    curChar = 'Kahli'
+    curChar = 'Maeka'
     workDir = 'E:\\DeskMates\\'
-    # fileName = 'CARD.FAS'
+    # fileName = 'T20.FAS'
     app = App()
     app.run()

@@ -16,7 +16,7 @@ the character's body will cause them to have different reactions. There are also
 <h2>Things to be added</h2>
 <ul>
 <li>Touch reaction with hotspots</li>
-<li>Recursive sequence parsing in the FAS file
+<li>Recursive sequence parsing
 <ul>
 <li>Frame range: a numeric string range of frames. It could be either forwards or backwards.
 
@@ -85,6 +85,13 @@ and a number of frames. Introduced in Dancing Girls.
 Example (taken from the dance_cheerleader.FAS file of the Dancing Girls DeskMate):
 
     float_loop_cheerleader@1000
+</li>
+<li>Loading external FAS file: the specific FAS file is loaded. The part (filename) is preceded by the underscore (_).
+Introduced in Tahni 3D.
+
+Example:
+
+    _T3D_cage (loads "T3D_cage.fas")
 </li>
 <li>Masking: The sequence is preceded by the symbol &#189; (0xBD in hex) for masking the parent sprite. Introduced in
 Screen Sirens.
