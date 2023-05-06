@@ -191,17 +191,9 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.y += x['offset'].y
                 elif isinstance(x, int):
                     self.image_ind = list(self.handler.app.frames.keys()).index(x)
-            else:
-                if len(self.seq_data) >= 2:
-                    self.seq_data.pop()
-                else:
-                    if self.temporary:
-                        self.handler.sprites.pop(self.handler.sprites.index(self))
-                        self.kill()
-                    else:
-                        self.seq_name = 'idle'
-                        self.seq_data[0] = get_sequence(self.seq_name, self.handler.app)
-                        # pass
+                if not self.seq_data[-1]:
+                    while not self.seq_data[-1] and len(self.seq_data) > 1:
+                        self.seq_data.pop()
         # print(self.seq_data_sub)
         # if (len(self.seq_data) < self.repeats_highest_level) and (self.repeats > 0 or self.timer_frames > 0):
         #     temp_seq = self.seq_data_sub
@@ -217,6 +209,16 @@ class SpriteUnit(pg.sprite.Sprite):
             self.timer_frames -= 1
         self.flip()
         self.rect.topleft = self.x, self.y
+        # print(self.seq_data)
+        if self.seq_data == [[]]:
+            if self.temporary:
+                temp_sprite = self.handler.sprites.index(self)
+                self.handler.sprites.pop(temp_sprite)
+                self.kill()
+            else:
+                self.seq_name = 'idle'
+                self.seq_data[0] = get_sequence(self.seq_name, self.handler.app)
+                # pass
 
 
 class SpriteHandler:
@@ -257,28 +259,17 @@ class App:
         self.font.render_to(self.screen, loading_text_rect, text='LOADING...', fgcolor='white',
                             style=ft.STYLE_STRONG + ft.STYLE_WIDE, rotation=0, size=40)
         pg.display.flip()
-        FASData(workDir + curChar + '\\Data\\common_demo.FAS', self)
-        FASData(workDir + curChar + '\\Data\\common_enter_demo.FAS', self)
-        FASData(workDir + curChar + '\\Data\\touch_demo.FAS', self)
-        FASData(workDir + curChar + '\\Data\\common.FAS', self)
-        FASData(workDir + curChar + '\\Data\\common_enter.FAS', self)
-        FASData(workDir + curChar + '\\Data\\touch.FAS', self)
-        # FASData('CARD.FAS', self)
-        # WASData(workDir + curChar + '\\Data\\Deskmate.WAS', self)
+        FASData('TEST_CARD.FAS', self)
         sort_dict(self.frames)
         self.frame_num = list(self.frames.keys()).index(frame_id)
         self.sprite_handler = SpriteHandler(self)
         self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2, False)
-        # self.sprite_handler.sprites[0].seq_name = 'do'
-        self.sprite_handler.sprites[0].seq_name = 'common_sword_training_long_flipped'
-        self.sprite_handler.sprites[0].temporary = False
+        self.sprite_handler.sprites[0].seq_name = 'placeholder_seq'
+        self.sprite_handler.sprites[0].temporary = True
         self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.upper()]]
-        # print(get_sequence(self.sprite_handler.sprites[0].seq_name.upper(), self))
-        # print(self.sprite_handler.sprites[0].seq_data)
 
     def update(self):
         pg.display.flip()
-        # self.background = pil_image_to_surface(ImageGrab.grab())
         if hasattr(self, 'sprite_handler'):
             self.sprite_handler.update()
         self.dt = self.clock.tick(10)
@@ -347,11 +338,7 @@ class App:
 
 
 if __name__ == '__main__':
-    # left=min(pnt1[0],(pnt2.[0]-frame_width))
-    # top=min(-pnt1[1],(-pnt2.[1]-frame_width))
     frame_id = 3
-    curChar = 'Maeka'
-    workDir = 'E:\\DeskMates\\'
-    # fileName = 'T20.FAS'
+    fileName = 'TEST_FILE.FAS'
     app = App()
     app.run()

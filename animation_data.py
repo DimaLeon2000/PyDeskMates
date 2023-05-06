@@ -215,9 +215,9 @@ def parse_sequence(sequence, app):
             cur_part = i
     parts_parsed = []
     for x in parts:
-        print('PART (ORIGINAL):', x)
+        # print('PART (ORIGINAL):', x)
         part_parsed = parse_sequence_part(x, app)
-        print('PART (PARSED):', part_parsed)
+        # print('PART (PARSED):', part_parsed)
         # if isinstance(part_parsed, list):
         #     [parts_parsed.append(part_parsed[i]) for i in range(len(part_parsed))]
         # else:
