@@ -17,8 +17,10 @@ REGEX_OFFSET = r'\[(-?\d+,-?\d+)\](.*)?'
 REGEX_RANDOM_CHOICES = r'{(.+?)}'
 REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED = r'(\(.+?\)|[a-zA-Z_0-9]+|\d+)%(\d+)'
 REGEX_FLOATING = r'§(\d)\/(\d)'
-REGEX_REPEAT = r'(.+?)\*(\d+)'  # Repeat the sequence X times
-REGEX_REPEAT_TIMER = r'(.+)\@(\d+)'  # Repeat the sequence for X frames / X/10 seconds
+# REGEX_REPEAT = r'(.+?)\*(\d+)'
+REGEX_REPEAT = r'(\([^(]+?\)|\w+?|\d+?)\*(\d+)'  # Repeat the sequence X times
+# REGEX_REPEAT_TIMER = r'(.+)\@(\d+)'
+REGEX_REPEAT_TIMER = r'(\([^(]+?\)|\w+?|\d+?)\@(\d+)'  # Repeat the sequence for X frames / X/10 seconds
 # (the hardcoded frame rate is 10 frames per second)
 REGEX_SOUND = r' !([^,]+)'  # Play sound effect (group #1: sound name)
 REGEX_FLIP_HORIZONTAL = r'<(.*)?'
@@ -91,6 +93,7 @@ def parse_sequence_part(__part, app):  # INCOMPLETE
     if not(__part.__contains__(' !')):
         __part = __part.strip()
     if re.match(REGEX_RANDOM_CHOICES, __part):
+        print('You have selected: RANDOMIZATION')
         choices_weighted = re.match(REGEX_RANDOM_CHOICES, __part).group(1).split('|')
         choices = []
         weights = []
@@ -104,6 +107,7 @@ def parse_sequence_part(__part, app):  # INCOMPLETE
         result = random.choices(choices, weights)[0]
         return parse_sequence_part(result, app)
     elif re.match(REGEX_GROUP, __part):
+        print('You have selected: GROUP')
         res0 = re.match(REGEX_GROUP, __part).group(1)
         res1 = re.match(REGEX_GROUP, __part).group(2)
         # print(res0, res1)
@@ -112,15 +116,18 @@ def parse_sequence_part(__part, app):  # INCOMPLETE
             result.append(parse_sequence_part(res1, app))
         return result
     elif re.match(REGEX_REPEAT_TIMER, __part):
+        print('You have selected: REPEAT (TIMER)')
         str_groups = re.match(REGEX_REPEAT_TIMER, __part).groups()
         # return SeqRepeatTimer(parse_sequence_part(str_groups[0], app), int(str_groups[1]))
         return {'timer_frames': int(str_groups[1]), 'seq': parse_sequence_part(str_groups[0], app)}
     elif re.match(REGEX_REPEAT, __part):
+        print('You have selected: REPEAT')
         str_groups = re.match(REGEX_REPEAT, __part).groups()
         # print(str_groups)
         # return SeqRepeat(parse_sequence_part(str_groups[0], app), int(str_groups[1]))
         return {'repeats': int(str_groups[1]), 'seq': parse_sequence_part(str_groups[0], app)}
     elif re.match(REGEX_FLIP_HORIZONTAL, __part):
+        print('You have selected: FLIP HORIZONTALLY')
         # print(re.match(REGEX_FLIP_HORIZONTAL, __part).group(1))
         res1 = re.match(REGEX_FLIP_HORIZONTAL, __part).group(1)
         result = [{'toggle_flag': 1}]
@@ -128,24 +135,28 @@ def parse_sequence_part(__part, app):  # INCOMPLETE
             result.append(parse_sequence_part(res1, app))
         return result
     elif re.match(REGEX_FLIP_VERTICAL, __part):
+        print('You have selected: FLIP VERTICALLY')
         res1 = re.match(REGEX_FLIP_VERTICAL, __part).group(1)
         result = [{'toggle_flag': 2}]
         if res1 != '':
             result.append(parse_sequence_part(res1, app))
         return result
     elif re.match(REGEX_MASKING, __part):
+        print('You have selected: MASKING')
         res1 = re.match(REGEX_MASKING, __part).group(1)
         result = [{'toggle_flag': 4}]
         if res1 != '':
             result.append(parse_sequence_part(res1, app))
         return result
     elif re.match(REGEX_FRAME_RANGE, __part):
+        print('You have selected: RANGE')
         frame_start, frame_end = int(re.match(REGEX_FRAME_RANGE, __part).groups()[0]),\
             int(re.match(REGEX_FRAME_RANGE, __part).groups()[1])
         frame_range = range(frame_start, (frame_end - 1) if (frame_end < frame_start) else (frame_end + 1),
                             -1 if (frame_end < frame_start) else 1)
         return [parse_sequence_part(str(i), app) for i in frame_range]
     elif re.match(REGEX_FENCING, __part):
+        print('You have selected: FENCING')
         values = list(re.match(REGEX_FENCING, __part).groups())
         rectangle = rect.Rect(alignment[values[2][1]] + (int(values[0]) if values[0] else 0),
                               alignment[values[2][3]] - (int(values[1]) if values[1] else 0),
@@ -157,13 +168,16 @@ def parse_sequence_part(__part, app):  # INCOMPLETE
         return {'fence': rectangle}
         # return 'FENCING'
     elif re.match(REGEX_OFFSET, __part):
+        print('You have selected: OFFSET')
         offset = list(literal_eval(re.match(REGEX_OFFSET, __part).group(1)))
         offset[1] *= -1
         part = re.match(REGEX_OFFSET, __part).group(2)
         return [{'offset': Vector2(offset)}, parse_sequence_part(part, app)]
     elif re.match(REGEX_SOUND, __part):
+        print('You have selected: SOUND')
         return {'sound': re.match(REGEX_SOUND, __part).group(1)}
     elif re.match(REGEX_LOAD_FAS, __part):
+        print('You have selected: LOAD FAS')
         return {'load_fas': re.match(REGEX_LOAD_FAS, __part).group(1)}
     elif __part.isnumeric():
         # print(__part)
@@ -201,7 +215,9 @@ def parse_sequence(sequence, app):
             cur_part = i
     parts_parsed = []
     for x in parts:
+        print('PART (ORIGINAL):', x)
         part_parsed = parse_sequence_part(x, app)
+        print('PART (PARSED):', part_parsed)
         # if isinstance(part_parsed, list):
         #     [parts_parsed.append(part_parsed[i]) for i in range(len(part_parsed))]
         # else:

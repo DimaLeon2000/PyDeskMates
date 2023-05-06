@@ -270,7 +270,7 @@ class App:
         self.sprite_handler = SpriteHandler(self)
         self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2, False)
         # self.sprite_handler.sprites[0].seq_name = 'do'
-        self.sprite_handler.sprites[0].seq_name = 'common_sword_training_long'
+        self.sprite_handler.sprites[0].seq_name = 'common_sword_training_long_flipped'
         self.sprite_handler.sprites[0].temporary = False
         self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.upper()]]
         # print(get_sequence(self.sprite_handler.sprites[0].seq_name.upper(), self))
