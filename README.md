@@ -79,19 +79,19 @@ the section sign (&sect;, 0xA7) and values are separated by the forward slash
 (/), and the result would be like this: &sect;h/v. Introduced in the Johlee DeskMate.
 <li>Extra sprite: The parts are preceded either by a single number sign (#) for absolute positioning or two number
 signs (##) for relative positioning. Introduced in Sugar-n-Spice.</li>
+<li>Loading external FAS file: the specific FAS file is loaded. The part (filename) is preceded by the underscore (_).
+Introduced in Sugar-n-Spice.
+
+Example:
+
+    _SnS_t_both_bondage (loads "SnS_t_both_bondage.fas")
+</li>
 <li>Timer: The sequence will be repeated for a set number of frames or more. The part is followed by the "at" symbol (@)
 and a number of frames. Introduced in Dancing Girls.
 
 Example (taken from the dance_cheerleader.FAS file of the Dancing Girls DeskMate):
 
     float_loop_cheerleader@1000
-</li>
-<li>Loading external FAS file: the specific FAS file is loaded. The part (filename) is preceded by the underscore (_).
-Introduced in Tahni 3D.
-
-Example:
-
-    _T3D_cage (loads "T3D_cage.fas")
 </li>
 <li>Masking: The sequence is preceded by the symbol &#189; (0xBD in hex) for masking the parent sprite. Introduced in
 Screen Sirens.
