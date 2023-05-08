@@ -40,11 +40,28 @@ class WASReader:
         # I - uint32, i - int32
         return self.read_bytes(offset=offset, num_bytes=4, byte_format=byte_format)[0]
 
+    def read_string_null_terminated(self, offset):
+        # c - char
+        i, result = 0, b''
+        while True:
+            b = self.read_bytes_raw(offset=offset + i, num_bytes=1)
+            if (b == b'\x00') or (b == b''):
+                break
+            if ord(b) in range(0, 128):
+                result += b
+            i += 1
+        return result.decode('ascii')
+
     def read_string(self, offset, num_bytes):
         # c - char
         return ''.join(b.decode('ascii') for b in
                        self.read_bytes(offset, num_bytes, byte_format='c' * num_bytes)
                        if ord(b) in range(0, 128)).split('\x00')[0]
+
+    def read_bytes_raw(self, offset, num_bytes):
+        self.fas_file.seek(offset)
+        buffer = self.fas_file.read(num_bytes)
+        return buffer
 
     def read_bytes(self, offset, num_bytes, byte_format):
         self.was_file.seek(offset)

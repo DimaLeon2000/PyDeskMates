@@ -36,11 +36,11 @@ class FASReader:
             bitmap_info_header_size = self.read_4_bytes(offset=self.header['header_size'] + bitmap_infos_size,
                                                         byte_format='I')
             bpp = self.read_2_bytes(offset=self.header['header_size'] + 14 + bitmap_infos_size)
-            colors_used = self.read_4_bytes(offset=self.header['header_size'] + 32 + bitmap_infos_size, byte_format='I')
+            # colors_used = self.read_4_bytes(offset=self.header['header_size']
+            #                                        + 32 + bitmap_infos_size, byte_format='I')
             # print(hex(self.header['header_size'] + bitmap_infos_size)+':', bitmap_info_header_size, colors_used)
             bitmap_info = self.read_bytes_raw(offset=self.header['header_size'] + bitmap_infos_size,
-                                              num_bytes=bitmap_info_header_size +
-                                              (colors_used if (colors_used >= 1) else 2 ** bpp)*4)
+                                              num_bytes=bitmap_info_header_size + (2 ** bpp)*4)
             self.bitmap_infos.append(bitmap_info)
             # bitmap_infos_size += bitmap_info['header_size'] + len(bitmap_info['colormap']) * 4
             bitmap_infos_size += len(bitmap_info)
@@ -51,7 +51,7 @@ class FASReader:
             self.extra_sprite_files = self.read_extra_sprite_files(self.header['header_size'] + bitmap_infos_size
                                                                    + int(self.header['version'] >= 1))
         else:
-            self.extra_sprite_files = {'size': 0, 'count': 0, 'list': []}  # Failsafe
+            self.extra_sprite_files = {'size': 0, 'count': 0, 'files': []}  # Failsafe
         if self.header['version'] >= 3:  # get missing upper 2 bytes of the frame_size variable
             self.header['frame_size'] += self.read_2_bytes(offset=self.header['header_size'] + bitmap_infos_size
                                                            + int(self.header['version'] >= 1)
@@ -124,8 +124,8 @@ class FASReader:
         return {
             'size': max(6, self.read_4_bytes(offset=__offset)),
             'counts': self.read_2_bytes(offset=__offset+4),
-            'sprites': self.read_stringlist_iso(offset=__offset+6,
-                                                num_bytes=self.read_4_bytes(offset=__offset) - 6)[:-1]
+            'files': self.read_stringlist_iso(offset=__offset+6,
+                                              num_bytes=self.read_4_bytes(offset=__offset) - 6)[:-1]
         }
 
     def read_frames_header(self, __offset):

@@ -3,7 +3,7 @@ import pygame as pg
 
 
 class WASData:
-    def __init__(self, was_path, app):
+    def __init__(self, was_path, app, mp3):
         self.app = app
         self.reader = WASReader(was_path)
         self.sounds = []
@@ -24,11 +24,11 @@ class WASData:
         name_offset = sound_pointers['name_offset'] + self.reader.header['snd_count'] * 8 + 8
         data_offset = sound_pointers['data_offset'] + self.reader.header['snd_count'] * 8 + 8
         data_length = self.reader.read_4_bytes(data_offset)
-        wave_data = []
-        for i in range(data_length):
-            wave_data.append(self.reader.read_1_byte(offset=data_offset + 4 + i))
+        # wave_data = []
+        # for i in range(data_length):
+        #     wave_data.append(self.reader.read_1_byte(offset=data_offset + 4 + i))
         sound_info = {
-            'name': self.reader.read_string(offset=name_offset, num_bytes=50),
-            'data': wave_data
+            'name': self.reader.read_string_null_terminated(offset=name_offset),
+            'data': self.reader.read_bytes_raw(offset=data_offset, num_bytes=data_length)
         }
         return sound_info
