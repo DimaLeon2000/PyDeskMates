@@ -188,10 +188,10 @@ class SpriteUnit(pg.sprite.Sprite):
         x = None
         adding_sprite_data = None
         terminate_repeat = False
-        if len(self.seq_data) > 0:
+        if len(self.seq_data) >= 1:
             while True:
                 # print(len(self.seq_data))
-                while not(self.seq_data[-1] or len(self.seq_data) <= 1):  # looping
+                while not (self.seq_data[-1] or len(self.seq_data) <= 1):  # looping
                     if self.timer_frames > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
                         # if len(self.seq_data) <= self.repeats_highest_level != 0:
                         if not self.seq_data[-1]:
@@ -282,7 +282,7 @@ class SpriteUnit(pg.sprite.Sprite):
                     elif isinstance(x, int):  # frame
                         # print(x, end='|')
                         if x in list(self.handler.app.frames_extra.keys()):
-                            self.image_ind = list(self.handler.app.frames_extra.keys()).index(x)\
+                            self.image_ind = list(self.handler.app.frames_extra.keys()).index(x) \
                                              + len(self.handler.app.frames)
                         else:
                             self.image_ind = list(self.handler.app.frames.keys()).index(x)
@@ -323,7 +323,7 @@ class SpriteUnit(pg.sprite.Sprite):
         self.translate()
         self.flip()
         self.rect.topleft = self.x, self.y
-        if not self.seq_data:
+        if not self.seq_data[0] and len(self.seq_data) == 1:
             if self.temporary:
                 # if self.ready_to_destroy:
                 temp_sprite = self.handler.sprites.index(self)
@@ -332,9 +332,9 @@ class SpriteUnit(pg.sprite.Sprite):
                 # else:
                 #     self.ready_to_destroy = True
             else:
-                # self.seq_name = 'idle'
-                # self.seq_data = [get_sequence(self.seq_name, self.handler.app)]
-                pass
+                self.seq_name = 'idle'
+                self.seq_data = [get_sequence(self.seq_name, self.handler.app)]
+                # pass
 
 
 class SpriteHandler:
@@ -379,6 +379,8 @@ class App:
         self.work_dir = working_dir
         self.character = character
         FASData(file_name, self)
+        # WASData(self.work_dir + self.character + '\\Data\\DESKMATE.WAS', self)
+        # WASData(self.work_dir + self.character + '\\Data\\DESKMATES.WA3', self, True)
         # sort_dict(self.frames)
         self.sprite_handler = SpriteHandler(self)
         self.sprite_handler.images_extra = [pil_image_to_surface(self.frames_extra[i], True)
@@ -386,6 +388,7 @@ class App:
         # self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2)
         self.sprite_handler.add_sprite(200, 200)
         self.sprite_handler.sprites[0].seq_name = 'do'
+        self.sprite_handler.sprites[0].temporary = True
         self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.upper()]]
 
     def update(self):
