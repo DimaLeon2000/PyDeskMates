@@ -10,22 +10,31 @@ from ast import literal_eval
 REGEX_ADD_SPRITE = r'#([#-]+)?(.+[^,])'  # places a temporary extra sprite
 # (group #1: absolute/relative positioning; group #2: sequence)
 REGEX_FENCING = r'©(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])\,(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])©'
+REGEX_FLOATING = r'§(\d)\/(\d)'
 REGEX_FRAME_RANGE = r'(\d+)-(\d+)'
 REGEX_GROUP = r'^\((.+)\)([^\*\@]*)?$'
 REGEX_LOAD_FAS = r'_([^,]+)'  # load external FAS file
 REGEX_OFFSET = r'\[(-?\d+,-?\d+)\](.*)?'
 REGEX_RANDOM_CHOICES = r'{(.+?)}(.*)?'
 REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED = r'(.+)%(\d+)'
-REGEX_FLOATING = r'§(\d)\/(\d)'
 # REGEX_REPEAT = r'(.+?)\*(\d+)'
 REGEX_REPEAT = r'(\([^(]+?\)|\w+?|\d+?)\*(\d+)'  # Repeat the sequence X times
 # REGEX_REPEAT_TIMER = r'(.+)\@(\d+)'
 REGEX_REPEAT_TIMER = r'(\([^(]+?\)|\w+?|\d+?)\@(\d+)'  # Repeat the sequence for X frames / X/10 seconds
 # (the hardcoded frame rate is 10 frames per second)
 REGEX_SOUND = r' !([^,]+)'  # Play sound effect (group #1: sound name)
+REGEX_UNNAMED_FUNCTION = r'!([^,]+)'
 REGEX_FLIP_HORIZONTAL = r'<(.*)?'
 REGEX_FLIP_VERTICAL = r'\^(.*)?'
 REGEX_MASKING = r'\xBD(.*)?'
+
+
+def flatten(s):
+    if not s:
+        return s
+    if isinstance(s[0], list):
+        return flatten(s[0]) + flatten(s[1:])
+    return s[:1] + flatten(s[1:])
 
 
 class FASData:
@@ -45,9 +54,13 @@ class FASData:
         for i in range(self.reader.seq_header['seq_count']):
             sequence = self.reader.read_sequence(i)
             if extra:
-                self.app.sequences_extra[sequence['name'].upper()] = sequence['sequence']
+                if not (sequence['name'].upper() in self.app.sequences_extra) \
+                        or (sequence['sequence'] != self.app.sequences_extra[sequence['name'].upper()]):
+                    self.app.sequences_extra[sequence['name'].upper()] = sequence['sequence']
             else:
-                self.app.sequences[sequence['name'].upper()] = sequence['sequence']
+                if not(sequence['name'].upper() in self.app.sequences)\
+                        or (sequence['sequence'] != self.app.sequences[sequence['name'].upper()]):
+                    self.app.sequences[sequence['name'].upper()] = sequence['sequence']
             # print(sequence['name'] + ':', self.app.sequences[sequence['name']])
             # print('== ' + sequence['name'] + ' (parsed) ==')
             # print(self.get_sequence(seq=sequence['name']))
@@ -170,7 +183,7 @@ def parse_sequence_part(__part):  # INCOMPLETE
                     temp_spr_flags |= 1  # centering
                 elif i == '#':
                     temp_spr_flags |= 2  # attach to the parent sprite
-        return AddTempSprite([parse_sequence_part(groups[1]), 3], temp_spr_flags)
+        return AddTempSprite([parse_sequence_part(groups[1])], temp_spr_flags)
         pass
     elif re.match(REGEX_FLOATING, __part):
         # print('You have selected: FLOAT')
@@ -215,7 +228,10 @@ def parse_sequence_part(__part):  # INCOMPLETE
             int(re.match(REGEX_FRAME_RANGE, __part).groups()[1])
         frame_range = range(frame_start, (frame_end - 1) if (frame_end < frame_start) else (frame_end + 1),
                             -1 if (frame_end < frame_start) else 1)
-        return [parse_sequence_part(str(i)) for i in frame_range]
+        # for i in frame_range:
+        #     yield parse_sequence_part(str(i))
+        # return [parse_sequence_part(str(i)) for i in frame_range]
+        return frame_range
     elif re.match(REGEX_FENCING, __part):
         # print('You have selected: FENCING')
         values = list(re.match(REGEX_FENCING, __part).groups())
@@ -237,6 +253,8 @@ def parse_sequence_part(__part):  # INCOMPLETE
     elif re.match(REGEX_SOUND, __part):
         # print('You have selected: SOUND')
         return {'sound': re.match(REGEX_SOUND, __part).group(1)}
+    elif re.match(REGEX_UNNAMED_FUNCTION, __part):
+        pass
     elif re.match(REGEX_LOAD_FAS, __part):
         # print('You have selected: LOAD FAS')
         return {'load_fas': re.match(REGEX_LOAD_FAS, __part).group(1)}
@@ -278,11 +296,13 @@ def parse_sequence(sequence):
     for x in parts:
         # print('PART (ORIGINAL):', x)
         part_parsed = parse_sequence_part(x)
+        if isinstance(part_parsed, range):
+            [parts_parsed.append(part_parsed[i]) for i in range(len(part_parsed))]
+        else:
+            parts_parsed.append(part_parsed)
         # print('PART (PARSED):', part_parsed)
         # if isinstance(part_parsed, list):
         #     [parts_parsed.append(part_parsed[i]) for i in range(len(part_parsed))]
-        # else:
-        parts_parsed.append(part_parsed)
         # if re.match(r'\[([0-9\,\-]+)\]', x): #check if
         #     pos_offset = literal_eval(re.match(r'\[([0-9\,\-]+)\]', x).group(1))
         #     print(pos_offset)

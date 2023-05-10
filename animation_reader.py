@@ -39,8 +39,10 @@ class FASReader:
             # colors_used = self.read_4_bytes(offset=self.header['header_size']
             #                                        + 32 + bitmap_infos_size, byte_format='I')
             # print(hex(self.header['header_size'] + bitmap_infos_size)+':', bitmap_info_header_size, colors_used)
-            bitmap_info = self.read_bytes_raw(offset=self.header['header_size'] + bitmap_infos_size,
-                                              num_bytes=bitmap_info_header_size + (2 ** bpp)*4)
+            bitmap_info = struct.pack('<I', bitmap_info_header_size) + struct.pack('<i', self.header['width'])\
+                          + struct.pack('<i', self.header['height']) +\
+                          self.read_bytes_raw(offset=self.header['header_size'] + 12 + bitmap_infos_size,
+                                              num_bytes=bitmap_info_header_size - 12 + (2 ** bpp)*4)
             self.bitmap_infos.append(bitmap_info)
             # bitmap_infos_size += bitmap_info['header_size'] + len(bitmap_info['colormap']) * 4
             bitmap_infos_size += len(bitmap_info)
@@ -152,6 +154,9 @@ class FASReader:
             'name': self.read_string_null_terminated(offset=name_offset),
             'sequence': self.read_string_null_terminated_iso(offset=seq_offset)
         }
+        # seq_info = {
+        #     self.read_string_null_terminated(offset=name_offset): self.read_string_null_terminated_iso(offset=seq_offset)
+        # }
         return seq_info
 
     def read_seq_directory(self, __offset):

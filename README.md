@@ -61,7 +61,8 @@ Example:
 repositioned) in a Cartesian coordinate system, enclosed with copyright symbols (&#169;, 0xA9 in hex). A digit before
 the letter can
 be set to:
-<ul><li>0 &mdash; stay in the region</li><li>1 &mdash; move to the last saved position</li>
+<ul><li>0 &mdash; stay in the region</li>
+<li>1 &mdash; move to the last saved position</li>
 <li>2 &mdash; unknown functionality</li>
 <li>3 &mdash; move to the parent sprite</li>
 </ul>
@@ -77,12 +78,13 @@ character to be in the set region.
 </li>
 <li>Flipping (DONE): The following frames can be flipped either horizontally or vertically by adding either the "less-
 than" symbol (&lt;, 0x3C in hex) or the caret (^, 0x5E in hex), respectively. Introduced in the Maeka DeskMate.</li>
-<li>Random floating: This part will make the character float around at random in the region with set maximum horizontal
-and vertical speeds. It's useful if you don't feel like adding relative positioning to every frame. It is preceded by
-the section sign (&sect;, 0xA7) and values are separated by the forward slash
-(/), and the result would be like this: &sect;h/v. Introduced in the Johlee DeskMate.
-<li>Extra sprite (NOT YET): The parts are preceded by a single number sign (#) followed by symbols representing the
-parameters (# for attaching to the parent sprite). Introduced in Sugar-n-Spice.</li>
+<li>Random floating (DONE): This part will make the character float around at random in the region with set maximum
+horizontal and vertical speeds. It's useful if you don't feel like adding relative positioning to every frame. It is
+preceded by the section sign (&sect;, 0xA7) and values are separated by the forward slash (/), and the result would be like
+this: &sect;h/v. Introduced in the Johlee DeskMate.
+<li>Extra sprite (DONE): The parts are preceded by a single number sign (#) followed by symbols representing the
+parameters (# for attaching to the parent sprite, - for adding to the back of the current sprite).
+Introduced in Sugar-n-Spice.</li>
 <li>Loading external FAS file (DONE): the specific FAS file is loaded. The part (filename) is preceded by the underscore
 (_). Introduced in Sugar-n-Spice.
 
@@ -97,7 +99,7 @@ Example (taken from the dance_cheerleader.FAS file of the Dancing Girls DeskMate
 
     float_loop_cheerleader@1000
 </li>
-<li>Masking (NOT YET): The sequence is preceded by the symbol &#189; (0xBD in hex) for masking the parent sprite.
+<li>Masking (DONE): The sequence is preceded by the symbol &#189; (0xBD in hex) for masking the parent sprite.
 Introduced in Screen Sirens.
 
 Example (taken from the sfx_iris.FAS file of the Kahli 3D DeskMate):
