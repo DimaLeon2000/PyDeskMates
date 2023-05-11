@@ -53,17 +53,7 @@ class FASData:
 
         for i in range(self.reader.seq_header['seq_count']):
             sequence = self.reader.read_sequence(i)
-            if extra:
-                if not (sequence['name'].upper() in self.app.sequences_extra) \
-                        or (sequence['sequence'] != self.app.sequences_extra[sequence['name'].upper()]):
-                    self.app.sequences_extra[sequence['name'].upper()] = sequence['sequence']
-            else:
-                if not(sequence['name'].upper() in self.app.sequences)\
-                        or (sequence['sequence'] != self.app.sequences[sequence['name'].upper()]):
-                    self.app.sequences[sequence['name'].upper()] = sequence['sequence']
-            # print(sequence['name'] + ':', self.app.sequences[sequence['name']])
-            # print('== ' + sequence['name'] + ' (parsed) ==')
-            # print(self.get_sequence(seq=sequence['name']))
+            self.app.sequences[sequence['name'].upper()] = sequence['sequence']
         self.frames = {}
         for i in range(self.reader.frames_header['count']):
             self.frames[self.reader.frames_header['id'][i]] = {
@@ -71,10 +61,7 @@ class FASData:
                 'info': self.reader.frames_header['info'][i]
             }
         for i in self.frames:
-            if extra:
-                self.app.frames_extra[i] = self.get_frame_masked(i)
-            else:
-                self.app.frames[i] = self.get_frame_masked(i)
+            self.app.frames[i] = self.get_frame_masked(i)
         self.reader.close()
         # self.app.frames_header = self.reader.frames_header
         # self.app.frames_bitmap = self.reader.frames_bitmap
@@ -96,7 +83,6 @@ class FASData:
         mask = ImageOps.invert(Image.open(io.BytesIO(self.get_frame_bitmap(__frame, mask=True))).convert('L'))
         color.putalpha(mask)
         return color
-
 
 alignment = {
     'l': 0,  # horizontal
@@ -130,8 +116,8 @@ class SeqRepeat:
         self.seq = seq
         self.repeats = repeats
 
-    # def __repr__(self):
-    #     return '{' + repr(self.seq) + ' * ' + repr(self.repeats) + '}'
+    def __repr__(self):
+        return '{' + repr(self.seq) + ' * ' + repr(self.repeats) + '}'
 
 
 class SeqRepeatTimer:
@@ -139,8 +125,8 @@ class SeqRepeatTimer:
         self.seq = seq
         self.duration = duration
 
-    # def __repr__(self):
-    #     return repr(self.seq)+'@'+repr(self.duration)
+    def __repr__(self):
+        return repr(self.seq)+'@'+repr(self.duration)
 
 
 def parse_sequence_part(__part):  # INCOMPLETE
@@ -159,8 +145,8 @@ def parse_sequence_part(__part):  # INCOMPLETE
             else:
                 choices.append('('+i+')')  # failsafe
                 weights.append(1)
-        result = [parse_sequence_part(random.choices(choices, weights)[0])]
-        # result = [RandomSeqPicker(choices, weights)]
+        # result = [parse_sequence_part(random.choices(choices, weights)[0])]
+        result = [RandomSeqPicker(choices, weights)]
         if after != '':
             result.append(parse_sequence_part(after))
         return result
@@ -296,10 +282,7 @@ def parse_sequence(sequence):
     for x in parts:
         # print('PART (ORIGINAL):', x)
         part_parsed = parse_sequence_part(x)
-        if isinstance(part_parsed, range):
-            [parts_parsed.append(part_parsed[i]) for i in range(len(part_parsed))]
-        else:
-            parts_parsed.append(part_parsed)
+        parts_parsed.append(part_parsed)
         # print('PART (PARSED):', part_parsed)
         # if isinstance(part_parsed, list):
         #     [parts_parsed.append(part_parsed[i]) for i in range(len(part_parsed))]
@@ -314,8 +297,11 @@ def parse_sequence(sequence):
 
 
 def get_sequence(seq, app):  # INCOMPLETE
-    if seq.upper() in list(app.sequences_extra.keys()):
-        sequence = app.sequences_extra[seq.upper()]
-    else:
+    # if seq.upper() in list(app.sequences_extra.keys()):
+    #     sequence = app.sequences_extra[seq.upper()]
+    if seq.upper() in list(app.sequences.keys()):
         sequence = app.sequences[seq.upper()]
+    else:
+        print('Sequence "' + seq.upper() + '" not found.')
+        return 0
     return parse_sequence(sequence)

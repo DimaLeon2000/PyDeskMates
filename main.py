@@ -1,5 +1,6 @@
 from audio_data import WASData
 from animation_data import *
+import glob
 import pyaudio
 import pygame as pg
 import pygame.freetype as ft
@@ -14,6 +15,7 @@ import zlib
 
 LINE_UP = '\033[1A'
 LINE_CLEAR = '\x1b[2K'
+TOUCH_STATES = ('loop', 'stop', 'start', 'up', 'down')
 
 
 def pil_image_to_surface(pil_image, alpha=False):
@@ -128,7 +130,7 @@ class SpriteUnit(pg.sprite.Sprite):
         self.vel_x, self.vel_y = 0, 0
         self.vel_max_x, self.vel_max_y = 0, 0
         super().__init__(handler.group)
-        self.image_ind = 0
+        self.image_ind = list(self.handler.app.frames.keys()).index(3)
         self.image = self.handler.images[self.image_ind]
         self.rect = self.image.get_rect()
         self.rect.topleft = self.x, self.y
@@ -136,21 +138,20 @@ class SpriteUnit(pg.sprite.Sprite):
         self.flags = 0  # (1 - horizontal flip, 2 - vertical flip, 4 - masking)
         self.temporary = False
         self.parent_spr = None
+        self.anchored_to_parent = False
         self.seq_name = ''
         self.seq_data = []
         self.seq_data_sub = []
         self.loop_count = 0
         self.terminate_repeat = False
-        self.ready_to_destroy = False
         self.timer_frames = 0
         self.repeats_highest_level = 0
         self.float_highest_level = 0
+        self.frame_delay = 0
 
     def translate(self):
-        if self.vel_max_x > 0:
-            self.x += self.vel_x
-        if self.vel_max_y > 0:
-            self.y += self.vel_y
+        self.x += self.vel_x
+        self.y += self.vel_y
         if (self.x < self.fence_rect.left or (self.x + self.rect.width) > self.fence_rect.right)\
                 and self.vel_max_x > 0:
             if self.handler.app.settings['float_classic']:
@@ -187,20 +188,22 @@ class SpriteUnit(pg.sprite.Sprite):
                     self.y = self.fence_rect.bottom - self.rect.height
 
     def flip(self):
-        if self.image_ind >= len(self.handler.images):
-            temp_img = self.handler.images_extra[self.image_ind - len(self.handler.images)]
-        else:
-            temp_img = self.handler.images[self.image_ind]
+        # if self.image_ind >= len(self.handler.images):
+        #     temp_img = self.handler.images_extra[self.image_ind - len(self.handler.images)]
+        # else:
+        temp_img = self.handler.images[self.image_ind]
         self.image = pg.transform.flip(temp_img, bool(self.flags & 1), bool(self.flags & 2))
         self.rect = self.image.get_rect()
         self.rect.topleft = self.x, self.y
-
 
     def update(self):
         x = None
         adding_sprite_data = None
         to_be_fenced = False
-        if len(self.seq_data) >= 1:
+        if self.frame_delay > 0:
+            self.frame_delay -= 1
+            return False
+        if len(self.seq_data) >= 1 and self.frame_delay == 0:
             while True:
                 # print(self.seq_data)
                 # print(len(self.seq_data))
@@ -262,9 +265,9 @@ class SpriteUnit(pg.sprite.Sprite):
                     elif isinstance(x, dict):
                         if 'load_fas' in x:  # load external file
                             FASData(self.handler.app.work_dir + self.handler.app.character + '\\Data\\'
-                                    + x['load_fas'] + '.FAS', self.handler.app, True)
-                            self.handler.images_extra = [pil_image_to_surface(self.handler.app.frames_extra[i], True)
-                                                         for i in self.handler.app.frames_extra]
+                                    + x['load_fas'] + '.FAS', self.handler.app)
+                            self.handler.images = [pil_image_to_surface(self.handler.app.frames[i], True)
+                                                   for i in self.handler.app.frames]
                         if 'toggle_flag' in x:  # sprite modification flags
                             self.flags ^= x['toggle_flag']
                         elif 'fence' in x:  # sprite fencing
@@ -284,7 +287,9 @@ class SpriteUnit(pg.sprite.Sprite):
                                         i.x += int(x['offset'].x)
                                         i.y += int(x['offset'].y)
                             if self.loop_count >= 1:  # terminate loop on colliding with the "fence"
-                                if self.x < self.fence_rect.left or (self.x + self.rect.width) > self.fence_rect.right or self.y < self.fence_rect.top or (self.y + self.rect.height) > self.fence_rect.bottom:
+                                if self.x < self.fence_rect.left or (self.x + self.rect.width) > self.fence_rect.right\
+                                            or self.y < self.fence_rect.top\
+                                        or (self.y + self.rect.height) > self.fence_rect.bottom:
                                     if self.x < self.fence_rect.left:
                                         self.x = self.fence_rect.left
                                     elif (self.x + self.rect.width) > self.fence_rect.right:
@@ -297,11 +302,11 @@ class SpriteUnit(pg.sprite.Sprite):
                                         i.terminate_repeat = True
                     elif isinstance(x, int):  # frame
                         # print(x, end='|')
-                        if x in list(self.handler.app.frames_extra.keys()):
-                            self.image_ind = list(self.handler.app.frames_extra.keys()).index(x) \
-                                             + len(self.handler.app.frames)
-                        else:
-                            self.image_ind = list(self.handler.app.frames.keys()).index(x)
+                        # if x in list(self.handler.app.frames_extra.keys()):
+                        #     self.image_ind = list(self.handler.app.frames_extra.keys()).index(x) \
+                        #                      + len(self.handler.app.frames)
+                        # else:
+                        self.image_ind = list(self.handler.app.frames.keys()).index(x)
                         self.flip()
                         # if self in self.handler.sprites:
                         #     print('SPRITE INDEX:', self.handler.sprites.index(self))
@@ -352,18 +357,17 @@ class SpriteUnit(pg.sprite.Sprite):
             self.timer_frames -= 1
 
         self.translate()
+        if self.frame_delay == 0:
+            self.frame_delay = max(0, FRAMERATE // 10 - 1)
         if len(self.seq_data) == 1 and (not self.seq_data[0]):
             if self.temporary:
-                # if self.ready_to_destroy:
                 temp_sprite = self.handler.sprites.index(self)
                 self.handler.sprites.pop(temp_sprite)
                 self.kill()
-                # else:
-                    # self.ready_to_destroy = True
             else:
-                # self.seq_name = 'all'
-                # self.seq_data = [get_sequence(self.seq_name, self.handler.app)]
-                pass
+                self.seq_name = 'idle'
+                self.seq_data = [get_sequence(self.seq_name, self.handler.app)]
+                # pass
 
 
 class SpriteHandler:
@@ -371,9 +375,6 @@ class SpriteHandler:
         self.app = app
         self.images = [pil_image_to_surface(app.frames[i], True)
                        for i in app.frames]
-        self.images_extra = [pil_image_to_surface(app.frames_extra[i], True)
-                             for i in app.frames_extra]
-        # self.group = pg.sprite.Group()
         self.group = pg.sprite.Group()
         self.sprites = []
 
@@ -400,9 +401,9 @@ class SpriteHandler:
                               points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft],
                               width=1)
                 self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
-                                    text=f'{self.sprites.index(i)}', fgcolor='white')
+                                        text=f'{self.sprites.index(i)}', fgcolor='white')
                 self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4 + FONT_SIZE),
-                                    text=f'X: {i.x}; Y: {i.y}', fgcolor='black', style=ft.STYLE_STRONG)
+                                        text=f'X: {i.x}; Y: {i.y}', fgcolor='black', style=ft.STYLE_STRONG)
 
 
 class App:
@@ -410,10 +411,9 @@ class App:
         # pg.mixer.init(frequency=4000, size=-16, channels=1)
         pg.init()
         self.sequences = {}
-        self.sequences_extra = {}
         self.frames = {}
-        self.frames_extra = {}
         self.sounds = {}
+        self.is_touched = False
         self.settings = {
             'float_classic': True
         }
@@ -429,14 +429,24 @@ class App:
         pg.display.flip()
         self.work_dir = working_dir
         self.character = character
-        FASData(file_name, self)
+        for i in reversed(glob.glob("*.FAS", root_dir=working_dir + character + "\\Data\\")):
+            FASData(self.work_dir + self.character + '\\Data\\' + i, self)
+        # if os.path.exists(self.work_dir + self.character + '\\Data\\' + 'no_all_list.TXT'):
+        #     if os.path.isfile(self.work_dir + self.character + '\\Data\\' + 'no_all_list.TXT'):
+        #         for i in open(self.work_dir + self.character + '\\Data\\' + 'no_all_list.TXT', 'r'):
+        #             i = i.strip('\n')
+        #             if os.path.exists(self.work_dir + self.character + '\\Data\\' + i):
+        #                 FASData(self.work_dir + self.character + '\\Data\\' + i, self, extra=True)
+        # FASData('.\\test\\' + self.character + '\\' + file_name, self, True)
+        # WASData(self.work_dir + self.character + '\\Data\\DESKMATE.WAS', self)
+        # WASData(self.work_dir + self.character + '\\Data\\DESKMATES.WA3', self, True)
         # sort_dict(self.frames)
         self.sprite_handler = SpriteHandler(self)
-        self.sprite_handler.images_extra = [pil_image_to_surface(self.frames_extra[i], True)
-                                            for i in self.frames_extra]
+        # self.sprite_handler.images_extra = [pil_image_to_surface(self.frames_extra[i], True)
+        #                                     for i in self.frames_extra]
         # self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2)
-        self.sprite_handler.add_sprite(200, 200)
-        self.sprite_handler.sprites[0].seq_name = 'test_sequence'
+        self.sprite_handler.add_sprite(0, 0)
+        self.sprite_handler.sprites[0].seq_name = 'S_Deskmate_Enter'
         # self.sprite_handler.sprites[0].temporary = True
         self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.upper()]]
 
@@ -444,7 +454,7 @@ class App:
         pg.display.flip()
         if hasattr(self, 'sprite_handler'):
             self.sprite_handler.update()
-        self.dt = self.clock.tick(10)
+        self.dt = self.clock.tick(FRAMERATE)
 
     def draw(self):
         self.screen.fill('gray64')
@@ -470,18 +480,21 @@ class App:
         #                                                         'first frame; end - last frame', fgcolor='black')
 
     def check_events(self):
+        mouse_pos = pg.mouse.get_pos()
         for e in pg.event.get():
-            # if e.type == pg.KEYDOWN:
-            #     if e.key == pg.K_RIGHT:
-            #         if self.sprite_handler.sprites[0].image_ind < len(self.frames) - 1:
-            #             self.sprite_handler.sprites[0].image_ind += 1
-            #     elif e.key == pg.K_LEFT:
-            #         if self.sprite_handler.sprites[0].image_ind > 0:
-            #             self.sprite_handler.sprites[0].image_ind -= 1
-            #     elif e.key == pg.K_HOME:
-            #         self.sprite_handler.sprites[0].image_ind = 0
-            #     elif e.key == pg.K_END:
-            #         self.sprite_handler.sprites[0].image_ind = len(self.frames) - 1
+            for s in self.sprite_handler.sprites:
+                if e.type == pg.MOUSEBUTTONDOWN:
+                    if e.button == 1:
+                        if s.rect.collidepoint(mouse_pos):
+                            self.is_touched = bool(s.image.get_at((mouse_pos[0]-s.x, mouse_pos[1]-s.y))[3] >> 7 % 2)
+                elif e.type == pg.MOUSEMOTION:
+                    if self.is_touched:
+                        s.x += e.rel[0]
+                        s.y += e.rel[1]
+                        s.rect.topleft = s.x, s.y
+                elif e.type == pg.MOUSEBUTTONUP:
+                    if e.button == 1:
+                        self.is_touched = False
             if e.type == pg.QUIT or (e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE):
                 pg.quit()
                 sys.exit()
