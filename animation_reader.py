@@ -54,7 +54,8 @@ class FASReader:
                                                                    + int(self.header['version'] >= 1))
         else:
             self.extra_sprite_files = {'size': 0, 'count': 0, 'files': []}  # Failsafe
-        if self.header['version'] >= 3:  # get missing upper 2 bytes of the frame_size variable
+        if self.header['version'] >= 3:  # get missing upper 2 bytes (high word) of the frame_size variable,
+                                         # which has lower 2 bytes (low word)
             self.header['frame_size'] += self.read_2_bytes(offset=self.header['header_size'] + bitmap_infos_size
                                                            + int(self.header['version'] >= 1)
                                                            + int(self.header['version'] >= 2)

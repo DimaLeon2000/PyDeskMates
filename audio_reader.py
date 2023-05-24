@@ -14,7 +14,6 @@ class WASReader:
         for i in range(self.header['snd_count']):
             offset = 8 + i * 8
             sound_offset = {
-                'id': i,
                 'name_offset': self.read_4_bytes(offset),
                 'data_offset': self.read_4_bytes(offset + 4)
             }
@@ -59,8 +58,8 @@ class WASReader:
                        if ord(b) in range(0, 128)).split('\x00')[0]
 
     def read_bytes_raw(self, offset, num_bytes):
-        self.fas_file.seek(offset)
-        buffer = self.fas_file.read(num_bytes)
+        self.was_file.seek(offset)
+        buffer = self.was_file.read(num_bytes)
         return buffer
 
     def read_bytes(self, offset, num_bytes, byte_format):

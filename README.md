@@ -5,7 +5,7 @@ display: block; margin: auto;"></h1>
 [![Python 3.6+](https://img.shields.io/badge/python-3.6+-blue.svg)](https://www.python.org/downloads/release/python-360/)
 [![experimental](http://badges.github.io/stability-badges/dist/experimental.svg)](http://github.com/badges/stability-badges)
 
-<p>An incomplete remake of Oska Software's DeskMates in Python.</p>
+<p>An incomplete remake of Oska Software's DeskMates in Python. Contributions are welcome.</p>
 
 <h2>What are DeskMates?</h2>
 <p>DeskMates are animated characters that live their own lives right on your desktop. You can launch the selected
@@ -16,7 +16,7 @@ the character's body will cause them to have different reactions. There are also
 
 <h2>Things to be added</h2>
 <ul>
-<li>Touch reaction with hotspots</li>
+<li>Touch reaction with hotspots (DONE)</li>
 <li>Recursive sequence parsing
 <ul>
 <li>Frame range (DONE): a numeric string range of frames. It could be either forwards or backwards.
@@ -33,7 +33,7 @@ Examples:
     0000*5
     (0192-0201)*10
 </li>
-<li>Playing the sound effect (NOT YET): a name of the sound effect is preceded by a space and an exclamation point
+<li>Playing the sound effect (DONE): a name of the sound effect is preceded by a space and an exclamation point
 (" !", or 0x2021 in hex). Must be contained in the frame group. (Not necessary: If the previous sound is currently
 playing, the animation has to pause till the former ends before playing the next one.)
 
@@ -57,14 +57,14 @@ Example:
 
     [15,8]
 </li>
-<li>Fencing region (PARTIALLY DONE): numbers representing coordinates of the region (where a character will be
+<li>Fencing region (NOT YET): numbers representing coordinates of the region (where a character will be
 repositioned) in a Cartesian coordinate system, enclosed with copyright symbols (&#169;, 0xA9 in hex). A digit before
 the letter can
 be set to:
-<ul><li>0 &mdash; stay in the region</li>
-<li>1 &mdash; move to the last saved position</li>
+<ul><li>0 &mdash; align to the screen</li>
+<li>1 &mdash; align the top-left corner to the last saved position</li>
 <li>2 &mdash; unknown functionality</li>
-<li>3 &mdash; move to the parent sprite</li>
+<li>3 &mdash; align to the parent sprite</li>
 </ul>
 
 It is formatted like: &#169;[x1,y1]0h0v,[x2,y2]0h0v&#169;.
@@ -110,4 +110,4 @@ Example (taken from the sfx_iris.FAS file of the Kahli 3D DeskMate):
 </li>
 </ul>
 <h2>Things to be improved</h2>
-<ul><li>Better image rendering (DONE)</li></ul>
+<ul><li>Faster file loading (NOT YET)</li></ul>

@@ -1,7 +1,7 @@
 from animation_reader import FASReader
+from bit_reader import *
 import io
-from pygame import Vector2, rect
-import random
+from pygame import Vector2
 import re
 from settings import *
 from PIL import Image, ImageOps, ImageFile
@@ -9,7 +9,8 @@ from ast import literal_eval
 
 REGEX_ADD_SPRITE = r'#([#-]+)?(.+[^,])'  # places a temporary extra sprite
 # (group #1: absolute/relative positioning; group #2: sequence)
-REGEX_FENCING = r'©(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])\,(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])©'
+# REGEX_FENCING = r'©(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])\,(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])©'
+REGEX_FENCING = r'©(?:\[(-?\d+,-?\d+)\])?(\d[lcr]\d[tmb])\,(?:\[(-?\d+,-?\d+)\])?(\d[lcr]\d[tmb])©'
 REGEX_FLOATING = r'§(\d)\/(\d)'
 REGEX_FRAME_RANGE = r'(\d+)-(\d+)'
 REGEX_GROUP = r'^\((.+)\)([^\*\@]*)?$'
@@ -18,9 +19,11 @@ REGEX_OFFSET = r'\[(-?\d+,-?\d+)\](.*)?'
 REGEX_RANDOM_CHOICES = r'{(.+?)}(.*)?'
 REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED = r'(.+)%(\d+)'
 # REGEX_REPEAT = r'(.+?)\*(\d+)'
-REGEX_REPEAT = r'(\([^(]+?\)|\w+?|\d+?)\*(\d+)'  # Repeat the sequence X times
+# REGEX_REPEAT = r'(\([^(]+?\)|\w+?|\d+?)\*(\d+)'  # Repeat the sequence X times
+REGEX_REPEAT = r'(\(.+?\)|\w+?|\d+?)\*(\d+)'  # Repeat the sequence X times
 # REGEX_REPEAT_TIMER = r'(.+)\@(\d+)'
-REGEX_REPEAT_TIMER = r'(\([^(]+?\)|\w+?|\d+?)\@(\d+)'  # Repeat the sequence for X frames / X/10 seconds
+# REGEX_REPEAT_TIMER = r'(\([^(]+?\)|\w+?|\d+?)\@(\d+)'  # Repeat the sequence for X frames / X/10 seconds
+REGEX_REPEAT_TIMER = r'(\([.]+?\)|\w+?|\d+?)\@(\d+)'  # Repeat the sequence for X frames / X/10 seconds
 # (the hardcoded frame rate is 10 frames per second)
 REGEX_SOUND = r' !([^,]+)'  # Play sound effect (group #1: sound name)
 REGEX_UNNAMED_FUNCTION = r'!([^,]+)'
@@ -47,9 +50,23 @@ class FASData:
         self.bitmap_infos = self.reader.bitmap_infos
         if hasattr(self.reader, 'touch'):
             self.touch = self.reader.touch
+            self.touch['bpp'] = get_bit_depth(len(self.touch['colors']) - 1)
+            self.touch['height'] = len(self.touch['bitmap']) // self.touch['width']
+            print('WIDTH:', self.touch['width'])
+            print('HEIGHT:', self.touch['height'])
+            # for i in range(self.touch['height']):
+            #     for j in range(self.touch['width']):
+            #         # print(str(i * self.touch['width'] + j) + ':',
+            #         #       self.touch['bitmap'][i * self.touch['width'] + j])
+            #         for k, value in enumerate(bit_reader.read_bits_per_pixel(self.touch['bitmap'][i*self.touch['width'] + j],
+            #                                                 bit_reader.get_bit_depth(len(self.touch['colors'])-1))):
+            #             # pass
+            #             print(str(i) + ', ' + str(j) + ' (' + str(k) + '):', value)
+            self.app.touch = self.touch
+
         if hasattr(self.reader, 'extra_sprite_files'):
             for i in self.reader.extra_sprite_files['files']:
-                FASData(app.work_dir + app.character + '\\Data\\' + i + '.FAS', app, True)
+                FASData(app.data_directory + i + '.FAS', app, True)
 
         for i in range(self.reader.seq_header['seq_count']):
             sequence = self.reader.read_sequence(i)
@@ -84,7 +101,7 @@ class FASData:
         color.putalpha(mask)
         return color
 
-alignment = {
+ALIGNMENT_TO_SCREEN = {
     'l': 0,  # horizontal
     'c': WIDTH // 2,
     'r': WIDTH,
@@ -97,6 +114,13 @@ class AddTempSprite:
     def __init__(self, seq_data, flags):
         self.seq_data = seq_data
         self.flags = flags
+
+
+class SetFenceRegion:
+    def __init__(self, alignments, modes, offsets):
+        self.offsets = offsets
+        self.modes = modes
+        self.alignments = alignments
 
 
 class FloatRandomVelocity:
@@ -221,14 +245,35 @@ def parse_sequence_part(__part):  # INCOMPLETE
     elif re.match(REGEX_FENCING, __part):
         # print('You have selected: FENCING')
         values = list(re.match(REGEX_FENCING, __part).groups())
-        rectangle = rect.Rect(alignment[values[2][1]] + (int(values[0]) if values[0] else 0),
-                              alignment[values[2][3]] - (int(values[1]) if values[1] else 0),
-                              alignment[values[5][1]] + (int(values[3]) if values[3] else 0)
-                              - alignment[values[2][1]] - (int(values[0]) if values[0] else 0),
-                              alignment[values[5][3]] - (int(values[4]) if values[4] else 0)
-                              - alignment[values[2][3]] + (int(values[1]) if values[1] else 0))
+        print(values)
+        offsets = []
+        modes = []
+        alignments = []
+        for i in range(4):
+            if i % 2 == 1:
+                for j, value in enumerate(values[i]):
+                    if j % 2 == 0:
+                        modes.append(int(value))
+                    else:
+                        alignments.append(value)
+            else:
+                offsets.append([])
+                if values[i]:
+                    offsets[i >> 1] = list(literal_eval(values[i]))
+                    offsets[i >> 1][1] *= -1
+                    offsets[i >> 1] = Vector2(offsets[i >> 1])
+        print(alignments)
+        print(modes)
+        print(offsets)
+        # rectangle = rect.Rect(alignment_to_screen[values[2][1]] + (int(values[0]) if values[0] else 0),
+        #                       alignment_to_screen[values[2][3]] - (int(values[1]) if values[1] else 0),
+        #                       alignment_to_screen[values[5][1]] + (int(values[3]) if values[3] else 0)
+        #                       - alignment_to_screen[values[2][1]] - (int(values[0]) if values[0] else 0),
+        #                       alignment_to_screen[values[5][3]] - (int(values[4]) if values[4] else 0)
+        #                       - alignment_to_screen[values[2][3]] + (int(values[1]) if values[1] else 0))
         # print(__part, '(FENCING)')
-        return {'fence': rectangle}
+        return SetFenceRegion(alignments, modes, offsets)
+        # return {'fence': rectangle}
         # return 'FENCING'
     elif re.match(REGEX_OFFSET, __part):
         # print('You have selected: OFFSET')
@@ -276,7 +321,8 @@ def parse_sequence(sequence):
         # print(level, end=' ')
         # cur_part = cur_part + ',' + i
         if level == 0:
-            parts.append(cur_part)
+            if cur_part:
+                parts.append(cur_part)
             cur_part = i
     parts_parsed = []
     for x in parts:

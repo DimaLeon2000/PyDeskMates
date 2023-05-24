@@ -1,21 +1,33 @@
 from audio_data import WASData
 from animation_data import *
+import configparser
 import glob
-import pyaudio
+from gui import *
 import pygame as pg
 import pygame.freetype as ft
 import random
 from settings import *
 import struct
 import sys
-import wave
 import os
 import zlib
 
 
 LINE_UP = '\033[1A'
 LINE_CLEAR = '\x1b[2K'
-TOUCH_STATES = ('loop', 'stop', 'start', 'up', 'down')
+LOADING_TEXT = 'LOADING...'
+ORIGINAL_FRAMERATE = 10
+TOUCH_STATES = ('up', 'down', 'start', 'loop', 'stop')
+FAS_EXTENSION = '.FAS'
+FAZ_EXTENSION = '.FAZ'
+FAS_WILDCARD = '*.FAS'
+FAZ_WILDCARD = '*.FAZ'
+WAS_WILDCARD = '*.WAS'
+WA3_WILDCARD = '*.WA3'
+COMMON_FILENAME = 'COMMON'
+TOUCH_FILENAME = 'TOUCH'
+DEMAND_LOAD_ONLY_LIST_FILE = 'demand_load_only_list.txt'
+NO_ALL_LIST_FILE = 'no_all_list.txt'
 
 
 def pil_image_to_surface(pil_image, alpha=False):
@@ -30,58 +42,58 @@ def sort_dict(my_dict):
     return {i: my_dict[i] for i in dict_keys}
 
 
-def debug_was_tool(audio_path):  # for reading .WAS files, that contain 16-bit PCM audio data
-    chunk_length = 32  # for buffering
-    sample_rate = 8000
-    bit_depth = pyaudio.paInt16
-    menu = {'1': 'Preview first 10 sounds',
-            '2': 'Preview all sounds',
-            '3': 'Extract all sounds to WAV',
-            '4': 'Exit'}
-    print('Loading WAS file...')
-    audio_data = WASData(audio_path)
-    while True:
-        os.system('cls' if os.name == 'nt' else 'clear')
-        print('File loaded:', audio_path + ';', '# of sounds:', len(audio_data.sounds))
-        options = menu.keys()
-        for entry in options:
-            print(entry + '.', menu[entry])
-
-        selection = input("Please Select: ")
-        if (selection == '1') or (selection == '2'):
-            p = pyaudio.PyAudio()
-            stream = p.open(format=bit_depth,
-                            channels=1,
-                            rate=sample_rate,
-                            output=True)
-            for i in range(min(10 if selection == '1' else len(audio_data.sounds), len(audio_data.sounds))):
-                cur_sound = audio_data.sounds[i]
-                print('Now playing:', cur_sound['name'])
-                j = 0
-                while j < (len(cur_sound['data']) // chunk_length):  # buffering
-                    stream.write(bytes(cur_sound['data'][j * chunk_length:(j + 1) * chunk_length]))
-                    j += 1
-
-                print(LINE_UP, end=LINE_CLEAR)
-
-            stream.stop_stream()
-            stream.close()
-            p.terminate()
-        elif selection == '3':
-            for i in range(len(audio_data.sounds)):
-                cur_sound = audio_data.sounds[i]
-                print('Extracting', cur_sound['name'] + '...', end=' ')
-                with wave.open(cur_sound['name'] + '.WAV', 'wb') as wf:
-                    wf.setnchannels(1)
-                    wf.setsampwidth(2)
-                    wf.setframerate(sample_rate)
-                    wf.writeframesraw(bytes(cur_sound['data']))
-                print('DONE!')
-
-        elif selection == '4':
-            break
-        else:
-            print("Unknown Option Selected!")
+# def debug_was_tool(audio_path):  # for reading .WAS files, that contain 16-bit PCM audio data
+#     chunk_length = 32  # for buffering
+#     sample_rate = 8000
+#     bit_depth = pyaudio.paInt16
+#     menu = {'1': 'Preview first 10 sounds',
+#             '2': 'Preview all sounds',
+#             '3': 'Extract all sounds to WAV',
+#             '4': 'Exit'}
+#     print('Loading WAS file...')
+#     audio_data = WASData(audio_path)
+#     while True:
+#         os.system('cls' if os.name == 'nt' else 'clear')
+#         print('File loaded:', audio_path + ';', '# of sounds:', len(audio_data.sounds))
+#         options = menu.keys()
+#         for entry in options:
+#             print(entry + '.', menu[entry])
+#
+#         selection = input("Please Select: ")
+#         if (selection == '1') or (selection == '2'):
+#             p = pyaudio.PyAudio()
+#             stream = p.open(format=bit_depth,
+#                             channels=1,
+#                             rate=sample_rate,
+#                             output=True)
+#             for i in range(min(10 if selection == '1' else len(audio_data.sounds), len(audio_data.sounds))):
+#                 cur_sound = audio_data.sounds[i]
+#                 print('Now playing:', cur_sound['name'])
+#                 j = 0
+#                 while j < (len(cur_sound['data']) // chunk_length):  # buffering
+#                     stream.write(bytes(cur_sound['data'][j * chunk_length:(j + 1) * chunk_length]))
+#                     j += 1
+#
+#                 print(LINE_UP, end=LINE_CLEAR)
+#
+#             stream.stop_stream()
+#             stream.close()
+#             p.terminate()
+#         elif selection == '3':
+#             for i in range(len(audio_data.sounds)):
+#                 cur_sound = audio_data.sounds[i]
+#                 print('Extracting', cur_sound['name'] + '...', end=' ')
+#                 with wave.open(cur_sound['name'] + '.WAV', 'wb') as wf:
+#                     wf.setnchannels(1)
+#                     wf.setsampwidth(2)
+#                     wf.setframerate(sample_rate)
+#                     wf.writeframesraw(bytes(cur_sound['data']))
+#                 print('DONE!')
+#
+#         elif selection == '4':
+#             break
+#         else:
+#             print("Unknown Option Selected!")
 
 
 def debug_fas_tool(anim_path, app):
@@ -140,8 +152,9 @@ class SpriteUnit(pg.sprite.Sprite):
         self.parent_spr = None
         self.anchored_to_parent = False
         self.seq_name = ''
-        self.seq_data = []
+        self.seq_data = [[]]
         self.seq_data_sub = []
+        self.touch_state = 0
         self.loop_count = 0
         self.terminate_repeat = False
         self.timer_frames = 0
@@ -208,12 +221,12 @@ class SpriteUnit(pg.sprite.Sprite):
                 # print(self.seq_data)
                 # print(len(self.seq_data))
                 while not self.seq_data[-1] and len(self.seq_data) > 1:  # looping
-                    if self.timer_frames > 0 and len(self.seq_data) <= self.repeats_highest_level:
+                    if self.timer_frames > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
                         # if len(self.seq_data) <= self.repeats_highest_level != 0:
                         if not self.seq_data[-1]:
                             self.seq_data[-1] = self.seq_data_sub[:]
                         break
-                    elif self.loop_count > 0 and len(self.seq_data) <= self.repeats_highest_level:
+                    elif self.loop_count > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
                         if not self.seq_data[-1]:
                             self.seq_data[-1] = self.seq_data_sub[:]
                         self.loop_count -= 1
@@ -232,7 +245,10 @@ class SpriteUnit(pg.sprite.Sprite):
                         if len(x) > 0:
                             self.seq_data.append(flatten(x))
                     elif isinstance(x, str):  # sequence shortcut
-                        self.seq_data.append(get_sequence(x, self.handler.app))
+                        if self.handler.app.settings['xtra'] and (x.upper() + '_') in self.handler.app.sequences:
+                            self.seq_data.append(get_sequence(x + '_', self.handler.app))
+                        else:
+                            self.seq_data.append(get_sequence(x, self.handler.app))
                     elif isinstance(x, range):
                         j = 0
                         for i in x:
@@ -251,6 +267,8 @@ class SpriteUnit(pg.sprite.Sprite):
                     elif isinstance(x, RandomSeqPicker):
                         self.seq_data.append(flatten([parse_sequence_part(random.choices(x.sequences, x.weights,
                                                                                          k=1)[0])]))
+                    elif isinstance(x, SetFenceRegion):
+                        pass
                     elif isinstance(x, SeqRepeat):  # loop x times
                         self.loop_count = x.repeats
                         self.seq_data_sub = flatten([x.seq])
@@ -264,8 +282,7 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.seq_data.append([])
                     elif isinstance(x, dict):
                         if 'load_fas' in x:  # load external file
-                            FASData(self.handler.app.work_dir + self.handler.app.character + '\\Data\\'
-                                    + x['load_fas'] + '.FAS', self.handler.app)
+                            FASData(self.handler.app.data_directory + x['load_fas'] + '.FAS', self.handler.app)
                             self.handler.images = [pil_image_to_surface(self.handler.app.frames[i], True)
                                                    for i in self.handler.app.frames]
                         if 'toggle_flag' in x:  # sprite modification flags
@@ -275,9 +292,11 @@ class SpriteUnit(pg.sprite.Sprite):
                             to_be_fenced = True
                             # print(list(self.fence_rect))
                         elif 'sound' in x:  # playing sound (not functioning)
-                            print(x)
+                            # print(x)
                             # print(self.handler.app.sounds[x['sound'].upper()].get_raw()[:64])
-                            # self.handler.app.sounds[x['sound'].upper()].play()
+                            if self.handler.app.settings['sound_on']:
+                                self.handler.app.sounds[x['sound'].upper()].play()
+                            # break
                         elif 'offset' in x:  # offsetting sprite
                             self.x += int(x['offset'].x)
                             self.y += int(x['offset'].y)
@@ -315,13 +334,13 @@ class SpriteUnit(pg.sprite.Sprite):
                         # self.rect = self.image.get_rect()
                         if to_be_fenced:
                             to_be_fenced = False
-                            self.x = min(max(self.x, self.fence_rect.left), (self.fence_rect.left
+                            self.rect.left = min(max(self.rect.left, self.fence_rect.left), (self.fence_rect.left
                                                                              + self.fence_rect.width
                                                                              - self.rect.width))
-                            self.y = min(max(self.y, self.fence_rect.top), (self.fence_rect.top
+                            self.rect.top = min(max(self.rect.top, self.fence_rect.top), (self.fence_rect.top
                                                                             + self.fence_rect.height
                                                                             - self.rect.height))
-                        self.rect.topleft = self.x, self.y
+                        self.x, self.y = self.rect.left, self.rect.top
                         break
                 else:
                     break
@@ -357,16 +376,42 @@ class SpriteUnit(pg.sprite.Sprite):
             self.timer_frames -= 1
 
         self.translate()
-        if self.frame_delay == 0:
-            self.frame_delay = max(0, FRAMERATE // 10 - 1)
+        if self.frame_delay <= 0:
+            self.frame_delay = max (0, (FRAMERATE + ORIGINAL_FRAMERATE / 2) // ORIGINAL_FRAMERATE - 1,
+                                    (self.handler.app.clock.get_fps() + ORIGINAL_FRAMERATE / 2) //
+                                    ORIGINAL_FRAMERATE - 1)
         if len(self.seq_data) == 1 and (not self.seq_data[0]):
             if self.temporary:
                 temp_sprite = self.handler.sprites.index(self)
                 self.handler.sprites.pop(temp_sprite)
                 self.kill()
             else:
-                self.seq_name = 'idle'
-                self.seq_data = [get_sequence(self.seq_name, self.handler.app)]
+                if self.touch_state == 1:
+                    if self.handler.app.clicked_sprite == self:
+                        self.touch_state = 2
+                    else:
+                        self.touch_state = 0
+                    self.seq_data = [['T' + read_rgb_to_hex(self.handler.app.touch_color, True)
+                                      + TOUCH_STATES[self.touch_state]]]
+                elif self.touch_state == 2:
+                    if self.handler.app.clicked_sprite == self:
+                        self.touch_state = 3
+                    else:
+                        self.touch_state = 4
+                    self.seq_data = [['T' + read_rgb_to_hex(self.handler.app.touch_color, True)
+                                      + TOUCH_STATES[self.touch_state]]]
+                    if self.touch_state == 4:
+                        self.touch_state = 0
+                elif self.touch_state == 3:
+                    if not self.handler.app.clicked_sprite:
+                        self.touch_state = 4
+                    self.seq_data = [['T' + read_rgb_to_hex(self.handler.app.touch_color, True)
+                                      + TOUCH_STATES[self.touch_state]]]
+                    if self.touch_state == 4:
+                        self.touch_state = 0
+                else:
+                    self.seq_name = 'idle'
+                    self.seq_data = [get_sequence(self.seq_name, self.handler.app)]
                 # pass
 
 
@@ -397,58 +442,124 @@ class SpriteHandler:
                 pg.draw.lines(self.app.screen, color='red2', closed=True,
                               points=[i.fence_rect.topleft, i.fence_rect.topright,
                                       i.fence_rect.bottomright, i.fence_rect.bottomleft], width=2)  # fencing region
-                pg.draw.lines(self.app.screen, color='green', closed=True,
-                              points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft],
-                              width=1)
-                self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
-                                        text=f'{self.sprites.index(i)}', fgcolor='white')
-                self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4 + FONT_SIZE),
-                                        text=f'X: {i.x}; Y: {i.y}', fgcolor='black', style=ft.STYLE_STRONG)
+                # pg.draw.lines(self.app.screen, color='green', closed=True,
+                #               points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft],
+                #               width=1)
+                # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
+                #                         text=f'{self.sprites.index(i)}', fgcolor='white')
+                # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4 + FONT_SIZE),
+                #                         text=f'X: {i.x}; Y: {i.y}', fgcolor='black')
 
 
 class App:
     def __init__(self):
-        # pg.mixer.init(frequency=4000, size=-16, channels=1)
+        self.sample_rate = 48000
+        pg.mixer.init(frequency=self.sample_rate, size=-16, channels=1, buffer=1024)
         pg.init()
         self.sequences = {}
         self.frames = {}
         self.sounds = {}
-        self.is_touched = False
+        self.clicked_sprite = None
+        self.touch_color = ''
         self.settings = {
-            'float_classic': True
+            'home_pos': (WIDTH // 2, HEIGHT // 2),
+            'float_classic': False,
+            'sound_on': True,
+            'xtra': True
         }
+        self.config = configparser.ConfigParser()
+        if os.path.isfile(config_filename):
+            self.config.read(config_filename)
+            if 'MainSpritePos' in self.config['DEFAULT']:
+                self.settings['home_pos'] = map(int,self.config['DEFAULT']['MainSpritePos'].split('|'))
+            if 'ClassicFloat' in self.config['Compatibility']:
+                self.settings['float_classic'] = bool(self.config['Compatibility']['ClassicFloat'])
+            if 'SoundOn' in self.config['DEFAULT']:
+                self.settings['sound_on'] = bool(self.config['DEFAULT']['SoundOn'])
+            if 'Xtra' in self.config['DEFAULT']:
+                self.settings['xtra'] = bool(self.config['DEFAULT']['Xtra'])
         self.screen = pg.display.set_mode(WIN_SIZE)
-        pg.display.set_caption('DeskMates sprite test')
+        pg.display.set_caption('PyDeskMates [WORK IN PROGRESS]')
         self.clock = pg.time.Clock()
         self.font = ft.SysFont('Courier New', FONT_SIZE)
         self.dt = 0.0
-        loading_text_rect = self.font.get_rect('LOADING...', size=40)
+        loading_text_rect = self.font.get_rect(LOADING_TEXT, size=FONT_SIZE * 4, style=ft.STYLE_STRONG)
         loading_text_rect.center = self.screen.get_rect().center
-        self.font.render_to(self.screen, loading_text_rect, text='LOADING...', fgcolor='white',
-                            style=ft.STYLE_STRONG + ft.STYLE_WIDE, rotation=0, size=40)
+        self.font.render_to(self.screen, loading_text_rect, text=LOADING_TEXT, fgcolor='white',
+                            rotation=0, size=FONT_SIZE * 4, style=ft.STYLE_STRONG)
         pg.display.flip()
         self.work_dir = working_dir
         self.character = character
-        for i in reversed(glob.glob("*.FAS", root_dir=working_dir + character + "\\Data\\")):
-            FASData(self.work_dir + self.character + '\\Data\\' + i, self)
-        # if os.path.exists(self.work_dir + self.character + '\\Data\\' + 'no_all_list.TXT'):
-        #     if os.path.isfile(self.work_dir + self.character + '\\Data\\' + 'no_all_list.TXT'):
-        #         for i in open(self.work_dir + self.character + '\\Data\\' + 'no_all_list.TXT', 'r'):
+        self.data_directory = data_directory
+        # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
+        for file in glob.glob(WAS_WILDCARD, root_dir=data_directory):
+            was_file = WASData(data_directory + file, self, False)
+            for i in was_file.sounds:
+                self.sounds[i] = was_file.sounds[i]
+            # del was_file
+        for file in glob.glob(WA3_WILDCARD, root_dir=data_directory):
+            was_file = WASData(data_directory + file, self, True)
+            for i in was_file.sounds:
+                self.sounds[i] = was_file.sounds[i]
+            # del was_file
+        if os.path.exists(data_directory + DEMAND_LOAD_ONLY_LIST_FILE)\
+            and os.path.isfile(data_directory + DEMAND_LOAD_ONLY_LIST_FILE):
+            demand_load_only_list = [i.strip('\n') for i in open(data_directory + DEMAND_LOAD_ONLY_LIST_FILE)]
+            self.main_fas_files = filter(lambda load_only: not load_only in demand_load_only_list,
+                                        reversed(glob.glob(FAS_WILDCARD, root_dir=data_directory)))
+        else:
+            self.main_fas_files = reversed(glob.glob(FAS_WILDCARD, root_dir=data_directory))
+        for file in self.main_fas_files:
+            FASData(data_directory + file, self)
+        # FASData('.\\test\\' + self.character + '\\EMAIL.FAS', self)
+        # print(self.sounds)
+        # for i in open(self.work_dir + self.character + '\\Data\\' + 'no_all_list.TXT', 'r'):
         #             i = i.strip('\n')
         #             if os.path.exists(self.work_dir + self.character + '\\Data\\' + i):
-        #                 FASData(self.work_dir + self.character + '\\Data\\' + i, self, extra=True)
+        #                 FASData(self.work_dir + self.character + '\\Data\\' + i)
         # FASData('.\\test\\' + self.character + '\\' + file_name, self, True)
-        # WASData(self.work_dir + self.character + '\\Data\\DESKMATE.WAS', self)
+        # if os.path.exists(data_directory + 'DESKMATE.WAS'):
+        #     self.was_file = WASData(data_directory + 'DESKMATE.WAS', self, False)
+        # if os.path.exists(data_directory + 'DESKMATES.WA3'):
+        #     self.wa3_file = WASData(data_directory + 'DESKMATES.WA3', self, True)
         # WASData(self.work_dir + self.character + '\\Data\\DESKMATES.WA3', self, True)
         # sort_dict(self.frames)
         self.sprite_handler = SpriteHandler(self)
         # self.sprite_handler.images_extra = [pil_image_to_surface(self.frames_extra[i], True)
         #                                     for i in self.frames_extra]
         # self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2)
-        self.sprite_handler.add_sprite(0, 0)
+        self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2)
         self.sprite_handler.sprites[0].seq_name = 'S_Deskmate_Enter'
+        # self.sprite_handler.sprites[0].seq_name = 'all'
         # self.sprite_handler.sprites[0].temporary = True
         self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.upper()]]
+        # self.sprite_handler.sprites[0].seq_data = [['T0x404040DOWN','T0x404040START',
+        #                                             SeqRepeat('T0x404040LOOP',10),'T0x404040STOP']]
+        self.running = True
+        # self.menu = ButtonMenu(self, 0, 0)
+        # self.menu.add_button(text='Settings')
+        # self.menu.add_button(text='Sound on', checkbox=True)
+        # self.menu.buttons[1].checked = self.settings['sound_on']
+        # self.menu.buttons[1].callback = self.toggle_sound_setting
+        # self.menu.add_button(text='Classic floating', checkbox=True)
+        # self.menu.buttons[2].checked = self.settings['float_classic']
+        # self.menu.buttons[2].callback = self.toggle_float_setting
+        # self.menu.add_button(text='Adult mode', checkbox=True)
+        # self.menu.buttons[3].checked = self.settings['xtra']
+        # self.menu.buttons[3].callback = self.toggle_adult_mode_setting
+
+
+    def toggle_adult_mode_setting(self, sender):
+        self.settings['xtra'] = sender.checked
+
+
+    def toggle_float_setting(self, sender):
+        self.settings['float_classic'] = sender.checked
+
+
+    def toggle_sound_setting(self, sender):
+        self.settings['sound_on'] = sender.checked
+
 
     def update(self):
         pg.display.flip()
@@ -461,16 +572,23 @@ class App:
         if hasattr(self, 'sprite_handler'):
             self.sprite_handler.draw()
         self.draw_fps()
+        # self.touch_image.draw(self.screen)
+        # self.menu.draw(self.screen)
 
     def draw_fps(self):
         fps_text = f'{self.clock.get_fps() :.0f} FPS'
         self.font.render_to(self.screen, (8, HEIGHT - 16), text=fps_text, fgcolor='black')
         if hasattr(self, 'sprite_handler'):
             # seq_text = f'Current sequence: {self.sprite_handler.sprites[0].seq_name}'
+            # seq_text = f'Current sequence: {self.sprite_handler.sprites[0].seq_data[0][0]}'
             # frame_text = f'Current frame: {list(app.frames.keys())[self.sprite_handler.sprites[0].image_ind]:04d}'
+            self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 3),
+                                text=f'Sprites: {len(self.sprite_handler.group)}', fgcolor='black')
+            self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 2),
+                                text=f'Classic floating: {self.settings["float_classic"]}', fgcolor='black')
             self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 1),
-                                text=f'Sprites: {len(self.sprite_handler.sprites)}', fgcolor='black')
-            # self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 1), text=seq_text, fgcolor='black')
+                                text=f'Clicked sprite: {self.clicked_sprite}', fgcolor='black')
+            # self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 2), text=seq_text, fgcolor='black')
             # self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 1),
             #                     text='Repeated sequence level: '
             #                          + str(self.sprite_handler.sprites[0].repeats_highest_level),
@@ -480,36 +598,87 @@ class App:
         #                                                         'first frame; end - last frame', fgcolor='black')
 
     def check_events(self):
-        mouse_pos = pg.mouse.get_pos()
         for e in pg.event.get():
-            for s in self.sprite_handler.sprites:
-                if e.type == pg.MOUSEBUTTONDOWN:
-                    if e.button == 1:
-                        if s.rect.collidepoint(mouse_pos):
-                            self.is_touched = bool(s.image.get_at((mouse_pos[0]-s.x, mouse_pos[1]-s.y))[3] >> 7 % 2)
-                elif e.type == pg.MOUSEMOTION:
-                    if self.is_touched:
-                        s.x += e.rel[0]
-                        s.y += e.rel[1]
-                        s.rect.topleft = s.x, s.y
-                elif e.type == pg.MOUSEBUTTONUP:
-                    if e.button == 1:
-                        self.is_touched = False
+            mouse_pos = pg.mouse.get_pos()
+            if e.type == pg.MOUSEBUTTONDOWN:
+                if e.button == 1:
+                    if hasattr(self, 'sprite_handler'):
+                        for s in reversed(self.sprite_handler.sprites):
+                            if s.rect.collidepoint(mouse_pos) and\
+                                bool(s.image.get_at((mouse_pos[0] - s.x, mouse_pos[1] - s.y))[3] >> 7 % 2):
+                                self.clicked_sprite = s
+                                break
+                        if self.clicked_sprite:
+                            # print('TESTING!')
+                            for i in self.sounds:
+                                self.sounds[i].stop()
+                            for i, sprite in enumerate(self.sprite_handler.group.sprites()):
+                                if i == 0:
+                                    sprite.x, sprite.y = self.clicked_sprite.x, self.clicked_sprite.y
+                                    self.clicked_sprite = sprite
+                                    if hasattr(self, 'touch'):
+                                        j: int
+                                        for j in range(self.touch['height']):
+                                            for k in range(self.touch['width']):
+                                                for l, value in enumerate(read_bits_per_pixel(self.touch['bitmap']
+                                                                             [k + j * self.touch['width']],
+                                                                             self.touch['bpp'])):
+                                                    if (k * (8 // self.touch['bpp']) + l) ==\
+                                                            min(max(0, mouse_pos[0] - sprite.x),
+                                                                self.touch['width'] * (8 // self.touch['bpp']) - 1)\
+                                                    and (self.touch['height'] - j - 1) ==\
+                                                        min(max(0, (mouse_pos[1] - sprite.y)),
+                                                            self.touch['height'] - 1):
+                                                        self.touch_color = self.touch['colors'][value]
+                                                        sprite.touch_state = 1
+                                                        sprite.seq_data =[['T' + read_rgb_to_hex(self.touch_color, True)
+                                                        + TOUCH_STATES[sprite.touch_state]]]
+                                else:
+                                    sprite.seq_data = [[]]
+                                sprite.flags = 0
+                                sprite.seq_data_sub = []
+                                sprite.loop_count = 0
+                                sprite.terminate_repeat = False
+                                sprite.timer_frames = 0
+                                sprite.repeats_highest_level = 0
+                                sprite.float_highest_level = 0
+                                sprite.frame_delay = 0
+            elif e.type == pg.MOUSEMOTION:
+                if self.clicked_sprite:
+                    self.clicked_sprite.x += e.rel[0]
+                    self.clicked_sprite.y += e.rel[1]
+                    self.settings['home_pos'] = self.clicked_sprite.x, self.clicked_sprite.y
+                    self.clicked_sprite.rect.topleft = self.clicked_sprite.x, self.clicked_sprite.y
+            elif e.type == pg.MOUSEBUTTONUP:
+                if e.button == 1:
+                    if self.clicked_sprite:
+                        self.settings['home_pos'] = self.clicked_sprite.x, self.clicked_sprite.y
+                        self.clicked_sprite = None
             if e.type == pg.QUIT or (e.type == pg.KEYDOWN and e.key == pg.K_ESCAPE):
-                pg.quit()
-                sys.exit()
+                self.running = False
 
     def run(self):
-        while True:
+        while self.running:
             self.check_events()
             self.update()
             self.draw()
+        self.config['DEFAULT'] = {'MainSpritePos': '|'.join(map(str,self.settings['home_pos'])),
+                                  'SoundOn': str(int(self.settings['sound_on'])),
+                                  'Xtra': str(int(self.settings['xtra']))}
+        self.config['Compatibility'] = {'ClassicFloat': str(int(self.settings['float_classic']))}
+        with open(config_filename, 'w') as saving_configfile:
+            self.config.write(saving_configfile)
+            saving_configfile.close()
+        pg.quit()
+        sys.exit()
 
 
 if __name__ == '__main__':
-    frame_id = 3
     character = 'TestChar'
     working_dir = os.getcwd()
-    file_name = 'TEST_FILE.FAS'
+    data_directory = working_dir + character + '\\Data\\'
+    config_filename = 'config.ini'
+    # faz_inflate(data_directory + 'EMAIL.FAZ', save_to_file=True)
+    # file_name = 'TEST_FILE.FAS'
     app = App()
     app.run()
