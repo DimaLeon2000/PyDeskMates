@@ -660,7 +660,6 @@ class App:
                                     sprite.x, sprite.y = self.clicked_sprite.x, self.clicked_sprite.y
                                     self.clicked_sprite = sprite
                                     if hasattr(self, 'touch'):  # "touch" reaction
-                                        j: int
                                         for j in range(self.touch['height']):
                                             for k in range(self.touch['width']):
                                                 for l, value in enumerate(read_bits_per_pixel(self.touch['bitmap']
