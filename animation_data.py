@@ -41,7 +41,7 @@ def flatten(s):
 
 
 class FASData:
-    def __init__(self, fas_path, app, extra=False):
+    def __init__(self, fas_path, app, extra=False, load_sequences=False):
         self.app = app
         self.reader = FASReader(fas_path)
         # if self.reader != 0:
@@ -52,8 +52,6 @@ class FASData:
             self.touch = self.reader.touch
             self.touch['bpp'] = get_bit_depth(len(self.touch['colors']) - 1)
             self.touch['height'] = len(self.touch['bitmap']) // self.touch['width']
-            print('WIDTH:', self.touch['width'])
-            print('HEIGHT:', self.touch['height'])
             # for i in range(self.touch['height']):
             #     for j in range(self.touch['width']):
             #         # print(str(i * self.touch['width'] + j) + ':',
@@ -65,12 +63,14 @@ class FASData:
             self.app.touch = self.touch
 
         if hasattr(self.reader, 'extra_sprite_files'):
+            self.extra_files = []
             for i in self.reader.extra_sprite_files['files']:
-                FASData(app.data_directory + i + '.FAS', app, True)
-
+                self.extra_files.append(app.data_directory + i + '.FAS')
+                # FASData(app.data_directory + i + '.FAS', app, True)
+        self.sequences = {}
         for i in range(self.reader.seq_header['seq_count']):
             sequence = self.reader.read_sequence(i)
-            self.app.sequences[sequence['name'].upper()] = sequence['sequence']
+            self.sequences[sequence['name'].casefold()] = sequence['sequence']
         self.frames = {}
         for i in range(self.reader.frames_header['count']):
             self.frames[self.reader.frames_header['id'][i]] = {
@@ -78,7 +78,16 @@ class FASData:
                 'info': self.reader.frames_header['info'][i]
             }
         for i in self.frames:
-            self.app.frames[i] = self.get_frame_masked(i)
+            if extra:
+                self.app.frames_extra[i] = self.get_frame_masked(i)
+            else:
+                self.app.frames[i] = self.get_frame_masked(i)
+        if load_sequences:
+            if extra:
+                # self.app.sequences_extra.update(self.sequences)
+                self.app.sequences_extra.update(self.sequences)
+            else:
+                self.app.sequences.update(self.sequences)
         self.reader.close()
         # self.app.frames_header = self.reader.frames_header
         # self.app.frames_bitmap = self.reader.frames_bitmap
@@ -343,11 +352,11 @@ def parse_sequence(sequence):
 
 
 def get_sequence(seq, app):  # INCOMPLETE
-    # if seq.upper() in list(app.sequences_extra.keys()):
-    #     sequence = app.sequences_extra[seq.upper()]
-    if seq.upper() in list(app.sequences.keys()):
-        sequence = app.sequences[seq.upper()]
+    if seq.casefold() in list(app.sequences.keys()):
+        sequence = app.sequences[seq.casefold()]
+    elif seq.casefold() in list(app.sequences_extra.keys()):
+        sequence = app.sequences_extra[seq.casefold()]
     else:
-        print('Sequence "' + seq.upper() + '" not found.')
+        print('Sequence "' + seq + '" not found.')
         return 0
     return parse_sequence(sequence)

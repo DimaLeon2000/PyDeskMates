@@ -20,9 +20,9 @@ class WASData:
         for i, sound_info in enumerate(self.reader.directory):
             sound = self.get_sound(i)
             if mp3:
-                self.sounds[sound['name'].upper()] = pg.mixer.Sound(file=BytesIO(sound['data']))
+                self.sounds[sound['name'].casefold()] = pg.mixer.Sound(file=BytesIO(sound['data']))
             else:
-                self.sounds[sound['name'].upper()] = pg.mixer.Sound(buffer=audioop.ratecv(sound['data'], 2, 1, 8000,
+                self.sounds[sound['name'].casefold()] = pg.mixer.Sound(buffer=audioop.ratecv(sound['data'], 2, 1, 8000,
                                                                                   app.sample_rate*2, None)[0])
             # self.sounds[sound['name']] = sound['data']
         # for i in self.sounds:

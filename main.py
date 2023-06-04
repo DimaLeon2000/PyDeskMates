@@ -26,6 +26,7 @@ WAS_WILDCARD = '*.WAS'
 WA3_WILDCARD = '*.WA3'
 COMMON_FILENAME = 'COMMON'
 TOUCH_FILENAME = 'TOUCH'
+DEMO_SUFFIX = '_DEMO'
 DEMAND_LOAD_ONLY_LIST_FILE = 'demand_load_only_list.txt'
 NO_ALL_LIST_FILE = 'no_all_list.txt'
 
@@ -108,7 +109,7 @@ def fas_deflate(anim_path):
     faz_file = 0
     packed_data = zlib.compress(anim_data)
     try:
-        faz_file = open(anim_name.upper() + '.FAZ', 'wb+')
+        faz_file = open(anim_name.casefold() + FAZ_EXTENSION.casefold(), 'wb+')
         faz_file.write(struct.pack('i', len(anim_data)))
         faz_file.write(packed_data)
     finally:
@@ -126,11 +127,11 @@ def faz_inflate(packed_path, save_to_file):
     # if not (os.path.exists(anim_name + '.FAS')):
     if save_to_file:
         try:
-            anim_file = open(anim_name.upper() + '.FAS', 'wb+')
+            anim_file = open(anim_name.casefold() + FAS_EXTENSION.casefold(), 'wb+')
             anim_file.write(anim_data)
         finally:
             anim_file.close()
-            return anim_name.upper() + '.FAS'
+            return anim_name.casefold() + FAS_EXTENSION.casefold()
     else:
         return anim_data
 
@@ -245,7 +246,9 @@ class SpriteUnit(pg.sprite.Sprite):
                         if len(x) > 0:
                             self.seq_data.append(flatten(x))
                     elif isinstance(x, str):  # sequence shortcut
-                        if self.handler.app.settings['xtra'] and (x.upper() + '_') in self.handler.app.sequences:
+                        print('Expected:', x)
+                        if self.handler.app.settings['xtra'] and (x.casefold() + '_') in self.handler.app.sequences:
+                            print('Got:', x + '_')
                             self.seq_data.append(get_sequence(x + '_', self.handler.app))
                         else:
                             self.seq_data.append(get_sequence(x, self.handler.app))
@@ -282,7 +285,7 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.seq_data.append([])
                     elif isinstance(x, dict):
                         if 'load_fas' in x:  # load external file
-                            FASData(self.handler.app.data_directory + x['load_fas'] + '.FAS', self.handler.app)
+                            FASData(self.handler.app.data_directory + x['load_fas'] + '.FAS', self.handler.app, False, True)
                             self.handler.images = [pil_image_to_surface(self.handler.app.frames[i], True)
                                                    for i in self.handler.app.frames]
                         if 'toggle_flag' in x:  # sprite modification flags
@@ -293,9 +296,9 @@ class SpriteUnit(pg.sprite.Sprite):
                             # print(list(self.fence_rect))
                         elif 'sound' in x:  # playing sound (not functioning)
                             # print(x)
-                            # print(self.handler.app.sounds[x['sound'].upper()].get_raw()[:64])
+                            # print(self.handler.app.sounds[x['sound'].casefold()].get_raw()[:64])
                             if self.handler.app.settings['sound_on']:
-                                self.handler.app.sounds[x['sound'].upper()].play()
+                                self.handler.app.sounds[x['sound'].casefold()].play()
                             # break
                         elif 'offset' in x:  # offsetting sprite
                             self.x += int(x['offset'].x)
@@ -334,13 +337,32 @@ class SpriteUnit(pg.sprite.Sprite):
                         # self.rect = self.image.get_rect()
                         if to_be_fenced:
                             to_be_fenced = False
-                            self.rect.left = min(max(self.rect.left, self.fence_rect.left), (self.fence_rect.left
-                                                                             + self.fence_rect.width
-                                                                             - self.rect.width))
-                            self.rect.top = min(max(self.rect.top, self.fence_rect.top), (self.fence_rect.top
-                                                                            + self.fence_rect.height
-                                                                            - self.rect.height))
+                            self.rect.clamp_ip(self.fence_rect)
+                            # self.rect.left = min(max(self.rect.left, self.fence_rect.left), (self.fence_rect.left
+                            #                                                  + self.fence_rect.width
+                            #                                                  - self.rect.width))
+                            # self.rect.top = min(max(self.rect.top, self.fence_rect.top), (self.fence_rect.top
+                            #                                                 + self.fence_rect.height
+                            #                                                 - self.rect.height))
                         self.x, self.y = self.rect.left, self.rect.top
+                        while not self.seq_data[-1] and len(self.seq_data) > 1:  # looping
+                            if self.timer_frames > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
+                                # if len(self.seq_data) <= self.repeats_highest_level != 0:
+                                if not self.seq_data[-1]:
+                                    self.seq_data[-1] = self.seq_data_sub[:]
+                                break
+                            elif self.loop_count > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
+                                if not self.seq_data[-1]:
+                                    self.seq_data[-1] = self.seq_data_sub[:]
+                                self.loop_count -= 1
+                                break
+                            else:
+                                self.seq_data.pop()
+                            if len(self.seq_data) <= self.float_highest_level != 0:
+                                self.vel_x = 0
+                                self.vel_y = 0
+                                self.vel_max_x, self.vel_max_y = 0, 0
+                                self.float_highest_level = 0
                         break
                 else:
                     break
@@ -372,14 +394,15 @@ class SpriteUnit(pg.sprite.Sprite):
         if self.seq_data_sub:
             if self.loop_count == 0 and self.timer_frames == 0:
                 self.seq_data_sub.clear()
-        if self.timer_frames > 0:
-            self.timer_frames -= 1
 
         self.translate()
         if self.frame_delay <= 0:
-            self.frame_delay = max (0, (FRAMERATE + ORIGINAL_FRAMERATE / 2) // ORIGINAL_FRAMERATE - 1,
+            self.frame_delay += max(0, (FRAMERATE + ORIGINAL_FRAMERATE / 2) // ORIGINAL_FRAMERATE - 1,
                                     (self.handler.app.clock.get_fps() + ORIGINAL_FRAMERATE / 2) //
                                     ORIGINAL_FRAMERATE - 1)
+            # self.frame_delay += max(0, (FRAMERATE + ORIGINAL_FRAMERATE / 2) // ORIGINAL_FRAMERATE - 1,
+            #                         (self.handler.app.clock.get_fps() + ORIGINAL_FRAMERATE / 2) //
+            #                         ORIGINAL_FRAMERATE - 1)
         if len(self.seq_data) == 1 and (not self.seq_data[0]):
             if self.temporary:
                 temp_sprite = self.handler.sprites.index(self)
@@ -391,22 +414,19 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.touch_state = 2
                     else:
                         self.touch_state = 0
-                    self.seq_data = [['T' + read_rgb_to_hex(self.handler.app.touch_color, True)
-                                      + TOUCH_STATES[self.touch_state]]]
+                    self.seq_data = [[self.handler.app.touch_color + TOUCH_STATES[self.touch_state]]]
                 elif self.touch_state == 2:
                     if self.handler.app.clicked_sprite == self:
                         self.touch_state = 3
                     else:
                         self.touch_state = 4
-                    self.seq_data = [['T' + read_rgb_to_hex(self.handler.app.touch_color, True)
-                                      + TOUCH_STATES[self.touch_state]]]
+                    self.seq_data = [[self.handler.app.touch_color + TOUCH_STATES[self.touch_state]]]
                     if self.touch_state == 4:
                         self.touch_state = 0
                 elif self.touch_state == 3:
                     if not self.handler.app.clicked_sprite:
                         self.touch_state = 4
-                    self.seq_data = [['T' + read_rgb_to_hex(self.handler.app.touch_color, True)
-                                      + TOUCH_STATES[self.touch_state]]]
+                    self.seq_data = [[self.handler.app.touch_color + TOUCH_STATES[self.touch_state]]]
                     if self.touch_state == 4:
                         self.touch_state = 0
                 else:
@@ -464,6 +484,8 @@ class App:
         self.settings = {
             'home_pos': (WIDTH // 2, HEIGHT // 2),
             'float_classic': False,
+            'limbo': False,
+            'simulate_demo': False,
             'sound_on': True,
             'xtra': True
         }
@@ -473,11 +495,15 @@ class App:
             if 'MainSpritePos' in self.config['DEFAULT']:
                 self.settings['home_pos'] = map(int,self.config['DEFAULT']['MainSpritePos'].split('|'))
             if 'ClassicFloat' in self.config['Compatibility']:
-                self.settings['float_classic'] = bool(self.config['Compatibility']['ClassicFloat'])
+                self.settings['float_classic'] = bool(int(self.config['Compatibility']['ClassicFloat']))
+            if 'Limbofy' in self.config['DEFAULT']:
+                self.settings['limbo'] = bool(int(self.config['DEFAULT']['Limbofy']))
+            if 'SimulateDemoVersion' in self.config['DEFAULT']:
+                self.settings['simulate_demo'] = bool(int(self.config['DEFAULT']['SimulateDemoVersion']))
             if 'SoundOn' in self.config['DEFAULT']:
-                self.settings['sound_on'] = bool(self.config['DEFAULT']['SoundOn'])
+                self.settings['sound_on'] = bool(int(self.config['DEFAULT']['SoundOn']))
             if 'Xtra' in self.config['DEFAULT']:
-                self.settings['xtra'] = bool(self.config['DEFAULT']['Xtra'])
+                self.settings['xtra'] = bool(int(self.config['DEFAULT']['Xtra']))
         self.screen = pg.display.set_mode(WIN_SIZE)
         pg.display.set_caption('PyDeskMates [WORK IN PROGRESS]')
         self.clock = pg.time.Clock()
@@ -505,12 +531,26 @@ class App:
         if os.path.exists(data_directory + DEMAND_LOAD_ONLY_LIST_FILE)\
             and os.path.isfile(data_directory + DEMAND_LOAD_ONLY_LIST_FILE):
             demand_load_only_list = [i.strip('\n') for i in open(data_directory + DEMAND_LOAD_ONLY_LIST_FILE)]
-            self.main_fas_files = filter(lambda load_only: not load_only in demand_load_only_list,
-                                        reversed(glob.glob(FAS_WILDCARD, root_dir=data_directory)))
+            self.main_fas_files = [*filter(lambda load_only: not load_only in demand_load_only_list,
+                                        glob.glob(FAS_WILDCARD, root_dir=data_directory))]
         else:
-            self.main_fas_files = reversed(glob.glob(FAS_WILDCARD, root_dir=data_directory))
+            self.main_fas_files = [*glob.glob(FAS_WILDCARD, root_dir=data_directory)]
+        # print(self.main_fas_files)
         for file in self.main_fas_files:
-            FASData(data_directory + file, self)
+            file_data = FASData(data_directory + file, self)
+            if file.startswith(COMMON_FILENAME.casefold()) \
+                or file.startswith(TOUCH_FILENAME.casefold()):
+                if not(file.endswith(DEMO_SUFFIX.casefold() + FAS_EXTENSION)) != self.settings['simulate_demo']:
+                        self.sequences.update(file_data.sequences)
+            else:
+                # pass
+                self.sequences.update(file_data.sequences)
+        # self.sequences.clear()
+        # print(self.main_fas_files)
+        # for file in self.main_fas_files:
+        #     if not file.upper().endswith(DEMO_SUFFIX + FAS_EXTENSION):
+        #         FASData(data_directory + file, self)
+        #         print(file)
         # FASData('.\\test\\' + self.character + '\\EMAIL.FAS', self)
         # print(self.sounds)
         # for i in open(self.work_dir + self.character + '\\Data\\' + 'no_all_list.TXT', 'r'):
@@ -524,6 +564,7 @@ class App:
         #     self.wa3_file = WASData(data_directory + 'DESKMATES.WA3', self, True)
         # WASData(self.work_dir + self.character + '\\Data\\DESKMATES.WA3', self, True)
         # sort_dict(self.frames)
+        # print(self.sequences)
         self.sprite_handler = SpriteHandler(self)
         # self.sprite_handler.images_extra = [pil_image_to_surface(self.frames_extra[i], True)
         #                                     for i in self.frames_extra]
@@ -532,7 +573,7 @@ class App:
         self.sprite_handler.sprites[0].seq_name = 'S_Deskmate_Enter'
         # self.sprite_handler.sprites[0].seq_name = 'all'
         # self.sprite_handler.sprites[0].temporary = True
-        self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.upper()]]
+        self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.casefold()]]
         # self.sprite_handler.sprites[0].seq_data = [['T0x404040DOWN','T0x404040START',
         #                                             SeqRepeat('T0x404040LOOP',10),'T0x404040STOP']]
         self.running = True
@@ -582,6 +623,8 @@ class App:
             # seq_text = f'Current sequence: {self.sprite_handler.sprites[0].seq_name}'
             # seq_text = f'Current sequence: {self.sprite_handler.sprites[0].seq_data[0][0]}'
             # frame_text = f'Current frame: {list(app.frames.keys())[self.sprite_handler.sprites[0].image_ind]:04d}'
+            self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 4),
+                                text=f'Simulate demo version: {str(self.settings["simulate_demo"])}', fgcolor='black')
             self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 3),
                                 text=f'Sprites: {len(self.sprite_handler.group)}', fgcolor='black')
             self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 2),
@@ -616,7 +659,7 @@ class App:
                                 if i == 0:
                                     sprite.x, sprite.y = self.clicked_sprite.x, self.clicked_sprite.y
                                     self.clicked_sprite = sprite
-                                    if hasattr(self, 'touch'):
+                                    if hasattr(self, 'touch'):  # "touch" reaction
                                         j: int
                                         for j in range(self.touch['height']):
                                             for k in range(self.touch['width']):
@@ -629,9 +672,12 @@ class App:
                                                     and (self.touch['height'] - j - 1) ==\
                                                         min(max(0, (mouse_pos[1] - sprite.y)),
                                                             self.touch['height'] - 1):
-                                                        self.touch_color = self.touch['colors'][value]
+                                                        if self.settings['limbo']:
+                                                            self.touch_color = 'UpdateRequired_'
+                                                        else:
+                                                            self.touch_color = 'T' + read_rgb_to_hex(self.touch['colors'][value], True)
                                                         sprite.touch_state = 1
-                                                        sprite.seq_data =[['T' + read_rgb_to_hex(self.touch_color, True)
+                                                        sprite.seq_data =[[0, self.touch_color
                                                         + TOUCH_STATES[sprite.touch_state]]]
                                 else:
                                     sprite.seq_data = [[]]
@@ -663,6 +709,8 @@ class App:
             self.update()
             self.draw()
         self.config['DEFAULT'] = {'MainSpritePos': '|'.join(map(str,self.settings['home_pos'])),
+                                  'Limbofy': str(int(self.settings['limbo'])),
+                                  'SimulateDemoVersion': str(int(self.settings['simulate_demo'])),
                                   'SoundOn': str(int(self.settings['sound_on'])),
                                   'Xtra': str(int(self.settings['xtra']))}
         self.config['Compatibility'] = {'ClassicFloat': str(int(self.settings['float_classic']))}
