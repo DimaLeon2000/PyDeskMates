@@ -271,7 +271,38 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.seq_data.append(flatten([parse_sequence_part(random.choices(x.sequences, x.weights,
                                                                                          k=1)[0])]))
                     elif isinstance(x, SetFenceRegion):
-                        pass
+                        ALIGNMENT_TO_SPRITE_HOME = {
+                            'l': self.handler.app.settings['home_pos'][0],  # horizontal
+                            'c': self.handler.app.settings['home_pos'][0] + self.rect.width // 2,
+                            'r': self.handler.app.settings['home_pos'][0] + self.rect.width,
+                            't': self.handler.app.settings['home_pos'][1],  # vertical
+                            'm': self.handler.app.settings['home_pos'][1] + self.rect.height // 2,
+                            'b': self.handler.app.settings['home_pos'][1] + self.rect.height}
+                        if self.parent_spr is not None:
+                            ALIGNMENT_TO_SPRITE_PARENT = {
+                                'l': self.parent_spr.x,  # horizontal
+                                'c': self.parent_spr.x + self.rect.width // 2,
+                                'r': self.parent_spr.x + self.rect.width,
+                                't': self.parent_spr.y,  # vertical
+                                'm': self.parent_spr.y + self.rect.height // 2,
+                                'b': self.parent_spr.y + self.rect.height}
+                        for i in range(4):
+                            if x.modes[i] == 1:
+                                value = ALIGNMENT_TO_SPRITE_HOME[x.alignments[i]] + x.offsets[i >> 1][i % 2]
+                            elif x.modes[i] == 3 and self.parent_spr is not None:
+                                value = ALIGNMENT_TO_SPRITE_PARENT[x.alignments[i]] + x.offsets[i >> 1][i % 2]
+                            else:
+                                value = ALIGNMENT_TO_SCREEN[x.alignments[i]] + x.offsets[i >> 1][i % 2]
+                                print(value)
+                            if i == 0:
+                                self.fence_rect.left = value
+                            elif i == 1:
+                                self.fence_rect.top = value
+                            elif i == 2:
+                                self.fence_rect.width = value - self.fence_rect.left
+                            elif i == 3:
+                                self.fence_rect.height = value - self.fence_rect.top
+                        to_be_fenced = True
                     elif isinstance(x, SeqRepeat):  # loop x times
                         self.loop_count = x.repeats
                         self.seq_data_sub = flatten([x.seq])
@@ -403,6 +434,7 @@ class SpriteUnit(pg.sprite.Sprite):
             # self.frame_delay += max(0, (FRAMERATE + ORIGINAL_FRAMERATE / 2) // ORIGINAL_FRAMERATE - 1,
             #                         (self.handler.app.clock.get_fps() + ORIGINAL_FRAMERATE / 2) //
             #                         ORIGINAL_FRAMERATE - 1)
+        print(self.seq_data)
         if len(self.seq_data) == 1 and (not self.seq_data[0]):
             if self.temporary:
                 temp_sprite = self.handler.sprites.index(self)
@@ -459,9 +491,9 @@ class SpriteHandler:
             if not i.flags & 4:
                 self.app.screen.blit(i.image, (i.rect.left, i.rect.top))
                 # pg.draw.rect(self.app.screen, color='pink', rect=i.rect)
-                pg.draw.lines(self.app.screen, color='red2', closed=True,
-                              points=[i.fence_rect.topleft, i.fence_rect.topright,
-                                      i.fence_rect.bottomright, i.fence_rect.bottomleft], width=2)  # fencing region
+                # pg.draw.lines(self.app.screen, color='red2', closed=True,
+                #               points=[i.fence_rect.topleft, i.fence_rect.topright,
+                #                       i.fence_rect.bottomright, i.fence_rect.bottomleft], width=2)  # fencing region
                 # pg.draw.lines(self.app.screen, color='green', closed=True,
                 #               points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft],
                 #               width=1)
@@ -493,7 +525,7 @@ class App:
         if os.path.isfile(config_filename):
             self.config.read(config_filename)
             if 'MainSpritePos' in self.config['DEFAULT']:
-                self.settings['home_pos'] = map(int,self.config['DEFAULT']['MainSpritePos'].split('|'))
+                self.settings['home_pos'] = tuple(map(int,self.config['DEFAULT']['MainSpritePos'].split('|')))
             if 'ClassicFloat' in self.config['Compatibility']:
                 self.settings['float_classic'] = bool(int(self.config['Compatibility']['ClassicFloat']))
             if 'Limbofy' in self.config['DEFAULT']:
@@ -652,7 +684,6 @@ class App:
                                 self.clicked_sprite = s
                                 break
                         if self.clicked_sprite:
-                            # print('TESTING!')
                             for i in self.sounds:
                                 self.sounds[i].stop()
                             for i, sprite in enumerate(self.sprite_handler.group.sprites()):

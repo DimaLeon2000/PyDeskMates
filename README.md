@@ -33,9 +33,9 @@ Examples:
     0000*5
     (0192-0201)*10
 </li>
-<li>Playing the sound effect (DONE): a name of the sound effect is preceded by a space and an exclamation point
-(" !", or 0x2021 in hex). Must be contained in the frame group. (Not necessary: If the previous sound is currently
-playing, the animation has to pause till the former ends before playing the next one.)
+<li>Playing the sound effect (DONE): a name of the sound effect is preceded by a space and an exclamation point, or a
+double dagger (" !"/"‡", or 0x2021 in hex). Must be contained in the frame group. (Not necessary: If the previous sound
+is currently playing, the animation has to pause till the former ends before playing the next one.)
 
 Example (from the DESKMATE.FAS file of Oska DeskMate v2.06):
 
@@ -59,8 +59,7 @@ Example:
 </li>
 <li>Fencing region (NOT YET): numbers representing coordinates of the region (where a character will be
 repositioned) in a Cartesian coordinate system, enclosed with copyright symbols (&#169;, 0xA9 in hex). A digit before
-the letter can
-be set to:
+the letter can be set to:
 <ul><li>0 &mdash; align to the screen</li>
 <li>1 &mdash; align the top-left corner to the last saved position</li>
 <li>2 &mdash; unknown functionality</li>

@@ -127,9 +127,9 @@ class AddTempSprite:
 
 class SetFenceRegion:
     def __init__(self, alignments, modes, offsets):
-        self.offsets = offsets
-        self.modes = modes
         self.alignments = alignments
+        self.modes = modes
+        self.offsets = offsets
 
 
 class FloatRandomVelocity:
@@ -255,9 +255,9 @@ def parse_sequence_part(__part):  # INCOMPLETE
         # print('You have selected: FENCING')
         values = list(re.match(REGEX_FENCING, __part).groups())
         print(values)
-        offsets = []
-        modes = []
         alignments = []
+        modes = []
+        offsets = []
         for i in range(4):
             if i % 2 == 1:
                 for j, value in enumerate(values[i]):
@@ -271,9 +271,6 @@ def parse_sequence_part(__part):  # INCOMPLETE
                     offsets[i >> 1] = list(literal_eval(values[i]))
                     offsets[i >> 1][1] *= -1
                     offsets[i >> 1] = Vector2(offsets[i >> 1])
-        print(alignments)
-        print(modes)
-        print(offsets)
         # rectangle = rect.Rect(alignment_to_screen[values[2][1]] + (int(values[0]) if values[0] else 0),
         #                       alignment_to_screen[values[2][3]] - (int(values[1]) if values[1] else 0),
         #                       alignment_to_screen[values[5][1]] + (int(values[3]) if values[3] else 0)
