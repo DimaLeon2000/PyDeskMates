@@ -219,7 +219,6 @@ class SpriteUnit(pg.sprite.Sprite):
             return False
         if len(self.seq_data) >= 1 and self.frame_delay == 0:
             while True:
-                # print(self.seq_data)
                 # print(len(self.seq_data))
                 while not self.seq_data[-1] and len(self.seq_data) > 1:  # looping
                     if self.timer_frames > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
@@ -251,6 +250,7 @@ class SpriteUnit(pg.sprite.Sprite):
                             print('Got:', x + '_')
                             self.seq_data.append(get_sequence(x + '_', self.handler.app))
                         else:
+                            print('Got:', x)
                             self.seq_data.append(get_sequence(x, self.handler.app))
                     elif isinstance(x, range):
                         j = 0
@@ -304,14 +304,15 @@ class SpriteUnit(pg.sprite.Sprite):
                                 self.fence_rect.height = value - self.fence_rect.top
                         to_be_fenced = True
                     elif isinstance(x, SeqRepeat):  # loop x times
-                        self.loop_count = x.repeats
-                        self.seq_data_sub = flatten([x.seq])
+                        if x.repeats > self.loop_count:
+                            self.loop_count = int(x.repeats)
+                        self.seq_data_sub = flatten([x.seq][:])
                         self.repeats_highest_level = len(self.seq_data) + 1
                         self.seq_data.append([])
                         # self.seq_data.append(self.seq_data_sub[:])
                     elif isinstance(x, SeqRepeatTimer):  # loop for X frames
-                        self.seq_data_sub = flatten([x.seq])
-                        self.timer_frames = x.duration
+                        self.seq_data_sub = flatten([x.seq][:])
+                        self.timer_frames = int(x.duration)
                         self.repeats_highest_level = len(self.seq_data) + 1
                         self.seq_data.append([])
                     elif isinstance(x, dict):
@@ -330,6 +331,7 @@ class SpriteUnit(pg.sprite.Sprite):
                             # print(self.handler.app.sounds[x['sound'].casefold()].get_raw()[:64])
                             if self.handler.app.settings['sound_on']:
                                 self.handler.app.sounds[x['sound'].casefold()].play()
+                            # pass
                             # break
                         elif 'offset' in x:  # offsetting sprite
                             self.x += int(x['offset'].x)
@@ -340,17 +342,9 @@ class SpriteUnit(pg.sprite.Sprite):
                                         i.x += int(x['offset'].x)
                                         i.y += int(x['offset'].y)
                             if self.loop_count >= 1:  # terminate loop on colliding with the "fence"
-                                if self.x < self.fence_rect.left or (self.x + self.rect.width) > self.fence_rect.right\
-                                            or self.y < self.fence_rect.top\
-                                        or (self.y + self.rect.height) > self.fence_rect.bottom:
-                                    if self.x < self.fence_rect.left:
-                                        self.x = self.fence_rect.left
-                                    elif (self.x + self.rect.width) > self.fence_rect.right:
-                                        self.x = self.fence_rect.right - self.rect.width
-                                    if self.y < self.fence_rect.top:
-                                        self.y = self.fence_rect.top
-                                    elif (self.y + self.rect.height) > self.fence_rect.bottom:
-                                        self.y = self.fence_rect.bottom - self.rect.height
+                                if not self.fence_rect.contains(self.rect):
+                                    self.rect.clamp_ip(self.fence_rect)
+                                    self.x, self.y = self.rect.left, self.rect.top
                                     for i in self.handler.sprites:
                                         i.terminate_repeat = True
                     elif isinstance(x, int):  # frame
@@ -376,24 +370,24 @@ class SpriteUnit(pg.sprite.Sprite):
                             #                                                 + self.fence_rect.height
                             #                                                 - self.rect.height))
                         self.x, self.y = self.rect.left, self.rect.top
-                        while not self.seq_data[-1] and len(self.seq_data) > 1:  # looping
-                            if self.timer_frames > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
-                                # if len(self.seq_data) <= self.repeats_highest_level != 0:
-                                if not self.seq_data[-1]:
-                                    self.seq_data[-1] = self.seq_data_sub[:]
-                                break
-                            elif self.loop_count > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
-                                if not self.seq_data[-1]:
-                                    self.seq_data[-1] = self.seq_data_sub[:]
-                                self.loop_count -= 1
-                                break
-                            else:
-                                self.seq_data.pop()
-                            if len(self.seq_data) <= self.float_highest_level != 0:
-                                self.vel_x = 0
-                                self.vel_y = 0
-                                self.vel_max_x, self.vel_max_y = 0, 0
-                                self.float_highest_level = 0
+                        # while not self.seq_data[-1] and len(self.seq_data) > 1:  # looping
+                        #     if self.timer_frames > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
+                        #         # if len(self.seq_data) <= self.repeats_highest_level != 0:
+                        #         if not self.seq_data[-1]:
+                        #             self.seq_data[-1] = self.seq_data_sub[:]
+                        #         break
+                        #     elif self.loop_count > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
+                        #         if not self.seq_data[-1]:
+                        #             self.seq_data[-1] = self.seq_data_sub[:]
+                        #         self.loop_count -= 1
+                        #         break
+                        #     else:
+                        #         self.seq_data.pop()
+                        #     if len(self.seq_data) <= self.float_highest_level != 0:
+                        #         self.vel_x = 0
+                        #         self.vel_y = 0
+                        #         self.vel_max_x, self.vel_max_y = 0, 0
+                        #         self.float_highest_level = 0
                         break
                 else:
                     break
@@ -434,7 +428,7 @@ class SpriteUnit(pg.sprite.Sprite):
             # self.frame_delay += max(0, (FRAMERATE + ORIGINAL_FRAMERATE / 2) // ORIGINAL_FRAMERATE - 1,
             #                         (self.handler.app.clock.get_fps() + ORIGINAL_FRAMERATE / 2) //
             #                         ORIGINAL_FRAMERATE - 1)
-        print(self.seq_data)
+        # print(self.seq_data)
         if len(self.seq_data) == 1 and (not self.seq_data[0]):
             if self.temporary:
                 temp_sprite = self.handler.sprites.index(self)
@@ -719,6 +713,8 @@ class App:
                                 sprite.repeats_highest_level = 0
                                 sprite.float_highest_level = 0
                                 sprite.frame_delay = 0
+                                sprite.fence_rect = pg.rect.Rect(-sprite.rect.width, -sprite.rect.height,
+                                                                 WIDTH + sprite.rect.width, HEIGHT + sprite.rect.height)
             elif e.type == pg.MOUSEMOTION:
                 if self.clicked_sprite:
                     self.clicked_sprite.x += e.rel[0]

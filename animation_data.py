@@ -163,8 +163,9 @@ class SeqRepeatTimer:
 
 
 def parse_sequence_part(__part):  # INCOMPLETE
-    if not(__part.__contains__(' !')):
-        __part = __part.strip()
+    __part = __part.replace(' !', '‡')
+    __part = __part.strip()
+    __part = __part.replace('‡', ' !')
     if re.match(REGEX_RANDOM_CHOICES, __part):
         # print('You have selected: RANDOMIZATION')
         choices_weighted = re.match(REGEX_RANDOM_CHOICES, __part).group(1).split('|')
