@@ -57,7 +57,7 @@ Example:
 
     [15,8]
 </li>
-<li>Fencing region (NOT YET): numbers representing coordinates of the region (where a character will be
+<li>Fencing region (ALMOST DONE): numbers representing coordinates of the region (where a character will be
 repositioned) in a Cartesian coordinate system, enclosed with copyright symbols (&#169;, 0xA9 in hex). A digit before
 the letter can be set to:
 <ul><li>0 &mdash; align to the screen</li>
