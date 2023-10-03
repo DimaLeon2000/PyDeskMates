@@ -1,7 +1,7 @@
 <h1 align="center"><img src="img/logo.png" alt="PyDeskMates" style="width: 50%; min-width: 256px;
 display: block; margin: auto;"></h1>
 
-[![code license](https://img.shields.io/badge/code%20license-MIT-green.svg)](https://github.com/DimaLeon2000/PyDeskMates/blob/main/LICENSE)
+[![code license](https://img.shields.io/badge/code%20license-GPL-3.0-green.svg)](https://github.com/DimaLeon2000/PyDeskMates/blob/main/LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/release/python-3100/)
 ![work in progress](https://img.shields.io/badge/status-work_in_progress-red)
 
