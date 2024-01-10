@@ -19,7 +19,7 @@ class Button:
         self.y = y
         self.hovered = False
         self.clicked = False
-        self.callback = lambda: None
+        self.callback = None
 
     def draw(self, surface):
         action = False
@@ -29,7 +29,8 @@ class Button:
             self.hovered = True
             if pg.mouse.get_pressed()[0] == 1 and not self.clicked:
                 self.clicked = True
-                self.callback(self)
+                if self.callback:
+                    self.callback(self)
                 action = True
         else:
             self.hovered = False
@@ -69,7 +70,8 @@ class ButtonCheckbox(Button):
             if pg.mouse.get_pressed()[0] == 1 and not self.clicked:
                 self.clicked = True
                 self.checked ^= True
-                self.callback(self)
+                if self.callback:
+                    self.callback(self)
                 action = True
         else:
             self.hovered = False
@@ -124,10 +126,10 @@ class ButtonMenu:
         self.update_menu_width()
 
     def draw(self, surface):
-        for i, button in enumerate(self.buttons):
+        for button in self.buttons:
             button.draw(surface)
 
     def update_menu_width(self):
         max_rect_width = max([i.rect.width for i in self.buttons])
-        for i, button in enumerate(self.buttons):
+        for button in self.buttons:
             button.rect.width = max_rect_width
