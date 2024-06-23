@@ -147,7 +147,7 @@ class SpriteUnit(pg.sprite.Sprite):
         self.image = self.handler.images[self.image_ind]
         self.rect = self.image.get_rect()
         self.rect.topleft = self.x, self.y
-        self.fence_rect = pg.rect.Rect(0, 0, WIDTH, HEIGHT)
+        self.fence_rect = None
         self.flags = 0  # (1 - horizontal flip, 2 - vertical flip, 4 - masking)
         self.temporary = False
         self.parent_spr = None
@@ -166,40 +166,41 @@ class SpriteUnit(pg.sprite.Sprite):
     def translate(self):
         self.x += self.vel_x
         self.y += self.vel_y
-        if (self.x < self.fence_rect.left or (self.x + self.rect.width) > self.fence_rect.right)\
-                and self.vel_max_x > 0:
-            if self.handler.app.settings['float_classic']:
-                if self.x < self.fence_rect.left:
-                    self.x = self.fence_rect.left
-                    self.vel_x = random.randrange(1, self.vel_max_x)
-                    self.vel_y = random.randrange(-self.vel_max_y, self.vel_max_y)
-                elif (self.x + self.rect.width) > self.fence_rect.right:
-                    self.x = self.fence_rect.right - self.rect.width
-                    self.vel_x = random.randrange(-self.vel_max_x, -1)
-                    self.vel_y = random.randrange(-self.vel_max_y, self.vel_max_y)
-            else:
-                self.vel_x *= -1
-                if self.x < self.fence_rect.left:
-                    self.x = self.fence_rect.left
-                elif (self.x + self.rect.width) > self.fence_rect.right:
-                    self.x = self.fence_rect.right - self.rect.width
-        if (self.y < self.fence_rect.top or (self.y + self.rect.height) > self.fence_rect.bottom)\
-                and self.vel_max_x > 0:
-            if self.handler.app.settings['float_classic']:
-                if self.y < self.fence_rect.top:
-                    self.y = self.fence_rect.top
-                    self.vel_x = random.randrange(-self.vel_max_x, self.vel_max_x)
-                    self.vel_y = random.randrange(1, self.vel_max_y)
-                elif (self.y + self.rect.height) > self.fence_rect.bottom:
-                    self.y = self.fence_rect.bottom - self.rect.height
-                    self.vel_x = random.randrange(-self.vel_max_x, self.vel_max_x)
-                    self.vel_y = random.randrange(-self.vel_max_y, -1)
-            else:
-                self.vel_y *= -1
-                if self.y < self.fence_rect.top:
-                    self.y = self.fence_rect.top
-                elif (self.y + self.rect.height) > self.fence_rect.bottom:
-                    self.y = self.fence_rect.bottom - self.rect.height
+        if self.fence_rect:
+            if (self.x < self.fence_rect.left or (self.x + self.rect.width) > self.fence_rect.right)\
+                    and self.vel_max_x > 0:
+                if self.handler.app.settings['float_classic']:
+                    if self.x < self.fence_rect.left:
+                        self.x = self.fence_rect.left
+                        self.vel_x = random.randrange(1, self.vel_max_x)
+                        self.vel_y = random.randrange(-self.vel_max_y, self.vel_max_y)
+                    elif (self.x + self.rect.width) > self.fence_rect.right:
+                        self.x = self.fence_rect.right - self.rect.width
+                        self.vel_x = random.randrange(-self.vel_max_x, -1)
+                        self.vel_y = random.randrange(-self.vel_max_y, self.vel_max_y)
+                else:
+                    self.vel_x *= -1
+                    if self.x < self.fence_rect.left:
+                        self.x = self.fence_rect.left
+                    elif (self.x + self.rect.width) > self.fence_rect.right:
+                        self.x = self.fence_rect.right - self.rect.width
+            if (self.y < self.fence_rect.top or (self.y + self.rect.height) > self.fence_rect.bottom)\
+                    and self.vel_max_x > 0:
+                if self.handler.app.settings['float_classic']:
+                    if self.y < self.fence_rect.top:
+                        self.y = self.fence_rect.top
+                        self.vel_x = random.randrange(-self.vel_max_x, self.vel_max_x)
+                        self.vel_y = random.randrange(1, self.vel_max_y)
+                    elif (self.y + self.rect.height) > self.fence_rect.bottom:
+                        self.y = self.fence_rect.bottom - self.rect.height
+                        self.vel_x = random.randrange(-self.vel_max_x, self.vel_max_x)
+                        self.vel_y = random.randrange(-self.vel_max_y, -1)
+                else:
+                    self.vel_y *= -1
+                    if self.y < self.fence_rect.top:
+                        self.y = self.fence_rect.top
+                    elif (self.y + self.rect.height) > self.fence_rect.bottom:
+                        self.y = self.fence_rect.bottom - self.rect.height
 
     def flip(self):
         # if self.image_ind >= len(self.handler.images):
@@ -215,9 +216,10 @@ class SpriteUnit(pg.sprite.Sprite):
         adding_sprite_data = None
         to_be_fenced = False
         if self.frame_delay > 0:
+            # self.frame_delay -= self.handler.app.clock.tick(ORIGINAL_FRAMERATE)
             self.frame_delay -= 1
             return False
-        if len(self.seq_data) >= 1 and self.frame_delay == 0:
+        if len(self.seq_data) >= 1 and self.frame_delay <= 0:
             while True:
                 # print(len(self.seq_data))
                 while not self.seq_data[-1] and len(self.seq_data) > 1:  # looping
@@ -286,6 +288,8 @@ class SpriteUnit(pg.sprite.Sprite):
                                 't': self.parent_spr.y,  # vertical
                                 'm': self.parent_spr.y + self.rect.height // 2,
                                 'b': self.parent_spr.y + self.rect.height}
+                        if not self.fence_rect:
+                            self.fence_rect = pg.rect.Rect(0, 0, 0, 0)
                         for i in range(4):
                             if x.modes[i] == 1:
                                 value = ALIGNMENT_TO_SPRITE_HOME[x.alignments[i]] + x.offsets[i >> 1][i % 2]
@@ -322,10 +326,6 @@ class SpriteUnit(pg.sprite.Sprite):
                                                    for i in self.handler.app.frames]
                         if 'toggle_flag' in x:  # sprite modification flags
                             self.flags ^= x['toggle_flag']
-                        elif 'fence' in x:  # sprite fencing
-                            self.fence_rect = x['fence']
-                            to_be_fenced = True
-                            # print(list(self.fence_rect))
                         elif 'sound' in x:  # playing sound (not functioning)
                             # print(x)
                             # print(self.handler.app.sounds[x['sound'].casefold()].get_raw()[:64])
@@ -342,7 +342,7 @@ class SpriteUnit(pg.sprite.Sprite):
                                         i.x += int(x['offset'].x)
                                         i.y += int(x['offset'].y)
                             if self.loop_count >= 1:  # terminate loop on colliding with the "fence"
-                                if not self.fence_rect.contains(self.rect):
+                                if not self.fence_rect.contains(self.rect) and self.fence_rect:
                                     self.rect.clamp_ip(self.fence_rect)
                                     self.x, self.y = self.rect.left, self.rect.top
                                     for i in self.handler.sprites:
@@ -355,39 +355,10 @@ class SpriteUnit(pg.sprite.Sprite):
                         # else:
                         self.image_ind = list(self.handler.app.frames.keys()).index(x)
                         self.flip()
-                        # if self in self.handler.sprites:
-                        #     print('SPRITE INDEX:', self.handler.sprites.index(self))
-                        # print(self.rect)
-                        # print(self.fence_rect)
-                        # self.rect = self.image.get_rect()
                         if to_be_fenced:
                             to_be_fenced = False
                             self.rect.clamp_ip(self.fence_rect)
-                            # self.rect.left = min(max(self.rect.left, self.fence_rect.left), (self.fence_rect.left
-                            #                                                  + self.fence_rect.width
-                            #                                                  - self.rect.width))
-                            # self.rect.top = min(max(self.rect.top, self.fence_rect.top), (self.fence_rect.top
-                            #                                                 + self.fence_rect.height
-                            #                                                 - self.rect.height))
                         self.x, self.y = self.rect.left, self.rect.top
-                        # while not self.seq_data[-1] and len(self.seq_data) > 1:  # looping
-                        #     if self.timer_frames > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
-                        #         # if len(self.seq_data) <= self.repeats_highest_level != 0:
-                        #         if not self.seq_data[-1]:
-                        #             self.seq_data[-1] = self.seq_data_sub[:]
-                        #         break
-                        #     elif self.loop_count > 0 and len(self.seq_data) <= self.repeats_highest_level != 0:
-                        #         if not self.seq_data[-1]:
-                        #             self.seq_data[-1] = self.seq_data_sub[:]
-                        #         self.loop_count -= 1
-                        #         break
-                        #     else:
-                        #         self.seq_data.pop()
-                        #     if len(self.seq_data) <= self.float_highest_level != 0:
-                        #         self.vel_x = 0
-                        #         self.vel_y = 0
-                        #         self.vel_max_x, self.vel_max_y = 0, 0
-                        #         self.float_highest_level = 0
                         break
                 else:
                     break
@@ -411,7 +382,7 @@ class SpriteUnit(pg.sprite.Sprite):
         if self.terminate_repeat:
             self.loop_count = 0
             self.timer_frames = 0
-            self.fence_rect = pg.rect.Rect(0, 0, WIDTH, HEIGHT)
+            self.fence_rect = None
             while (len(self.seq_data) > 1) and len(self.seq_data) >= self.repeats_highest_level:
                 self.seq_data.pop()
             self.terminate_repeat = False
@@ -422,12 +393,10 @@ class SpriteUnit(pg.sprite.Sprite):
 
         self.translate()
         if self.frame_delay <= 0:
+            # self.frame_delay = 50
             self.frame_delay += max(0, (FRAMERATE + ORIGINAL_FRAMERATE / 2) // ORIGINAL_FRAMERATE - 1,
                                     (self.handler.app.clock.get_fps() + ORIGINAL_FRAMERATE / 2) //
                                     ORIGINAL_FRAMERATE - 1)
-            # self.frame_delay += max(0, (FRAMERATE + ORIGINAL_FRAMERATE / 2) // ORIGINAL_FRAMERATE - 1,
-            #                         (self.handler.app.clock.get_fps() + ORIGINAL_FRAMERATE / 2) //
-            #                         ORIGINAL_FRAMERATE - 1)
         # print(self.seq_data)
         if len(self.seq_data) == 1 and (not self.seq_data[0]):
             if self.temporary:
@@ -542,55 +511,34 @@ class App:
         pg.display.flip()
         self.work_dir = working_dir
         self.character = character
-        self.data_directory = data_directory
+        self.data_directory = working_dir + character + '\\Data\\'
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
-        for file in glob.glob(WAS_WILDCARD, root_dir=data_directory):
-            was_file = WASData(data_directory + file, self, False)
+        for file in glob.glob(WAS_WILDCARD, root_dir = self.data_directory):
+            was_file = WASData(self.data_directory + file, self, False)
             for i in was_file.sounds:
                 self.sounds[i] = was_file.sounds[i]
             # del was_file
-        for file in glob.glob(WA3_WILDCARD, root_dir=data_directory):
-            was_file = WASData(data_directory + file, self, True)
+        for file in glob.glob(WA3_WILDCARD, root_dir = self.data_directory):
+            was_file = WASData(self.data_directory + file, self, True)
             for i in was_file.sounds:
                 self.sounds[i] = was_file.sounds[i]
             # del was_file
-        if os.path.exists(data_directory + DEMAND_LOAD_ONLY_LIST_FILE)\
-            and os.path.isfile(data_directory + DEMAND_LOAD_ONLY_LIST_FILE):
-            demand_load_only_list = [i.strip('\n') for i in open(data_directory + DEMAND_LOAD_ONLY_LIST_FILE)]
+        if os.path.exists(self.data_directory + DEMAND_LOAD_ONLY_LIST_FILE)\
+            and os.path.isfile(self.data_directory + DEMAND_LOAD_ONLY_LIST_FILE):
+            demand_load_only_list = [i.strip('\n') for i in open(self.data_directory + DEMAND_LOAD_ONLY_LIST_FILE)]
             self.main_fas_files = [*filter(lambda load_only: not load_only in demand_load_only_list,
-                                        glob.glob(FAS_WILDCARD, root_dir=data_directory))]
+                                        glob.glob(FAS_WILDCARD, root_dir = self.data_directory))]
         else:
-            self.main_fas_files = [*glob.glob(FAS_WILDCARD, root_dir=data_directory)]
+            self.main_fas_files = [*glob.glob(FAS_WILDCARD, root_dir = self.data_directory)]
         # print(self.main_fas_files)
         for file in self.main_fas_files:
-            file_data = FASData(data_directory + file, self)
-            if file.startswith(COMMON_FILENAME.casefold()) \
-                or file.startswith(TOUCH_FILENAME.casefold()):
+            file_data = FASData(self.data_directory + file, self)
+            if file.startswith(COMMON_FILENAME.casefold()) or file.startswith(TOUCH_FILENAME.casefold()):
                 if not(file.endswith(DEMO_SUFFIX.casefold() + FAS_EXTENSION)) != self.settings['simulate_demo']:
                         self.sequences.update(file_data.sequences)
             else:
                 # pass
                 self.sequences.update(file_data.sequences)
-        # self.sequences.clear()
-        # print(self.main_fas_files)
-        # for file in self.main_fas_files:
-        #     if not file.upper().endswith(DEMO_SUFFIX + FAS_EXTENSION):
-        #         FASData(data_directory + file, self)
-        #         print(file)
-        # FASData('.\\test\\' + self.character + '\\EMAIL.FAS', self)
-        # print(self.sounds)
-        # for i in open(self.work_dir + self.character + '\\Data\\' + 'no_all_list.TXT', 'r'):
-        #             i = i.strip('\n')
-        #             if os.path.exists(self.work_dir + self.character + '\\Data\\' + i):
-        #                 FASData(self.work_dir + self.character + '\\Data\\' + i)
-        # FASData('.\\test\\' + self.character + '\\' + file_name, self, True)
-        # if os.path.exists(data_directory + 'DESKMATE.WAS'):
-        #     self.was_file = WASData(data_directory + 'DESKMATE.WAS', self, False)
-        # if os.path.exists(data_directory + 'DESKMATES.WA3'):
-        #     self.wa3_file = WASData(data_directory + 'DESKMATES.WA3', self, True)
-        # WASData(self.work_dir + self.character + '\\Data\\DESKMATES.WA3', self, True)
-        # sort_dict(self.frames)
-        # print(self.sequences)
         self.sprite_handler = SpriteHandler(self)
         # self.sprite_handler.images_extra = [pil_image_to_surface(self.frames_extra[i], True)
         #                                     for i in self.frames_extra]
@@ -603,17 +551,17 @@ class App:
         # self.sprite_handler.sprites[0].seq_data = [['T0x404040DOWN','T0x404040START',
         #                                             SeqRepeat('T0x404040LOOP',10),'T0x404040STOP']]
         self.running = True
-        # self.menu = ButtonMenu(self, 0, 0)
-        # self.menu.add_button(text='Settings')
-        # self.menu.add_button(text='Sound on', checkbox=True)
-        # self.menu.buttons[1].checked = self.settings['sound_on']
-        # self.menu.buttons[1].callback = self.toggle_sound_setting
-        # self.menu.add_button(text='Classic floating', checkbox=True)
-        # self.menu.buttons[2].checked = self.settings['float_classic']
-        # self.menu.buttons[2].callback = self.toggle_float_setting
-        # self.menu.add_button(text='Adult mode', checkbox=True)
-        # self.menu.buttons[3].checked = self.settings['xtra']
-        # self.menu.buttons[3].callback = self.toggle_adult_mode_setting
+        self.menu = ButtonMenu(self, 0, 0)
+        self.menu.add_button(text='Settings')
+        self.menu.add_button(text='Sound on', checkbox=True)
+        self.menu.buttons[1].checked = self.settings['sound_on']
+        self.menu.buttons[1].callback = self.toggle_sound_setting
+        self.menu.add_button(text='Classic floating', checkbox=True)
+        self.menu.buttons[2].checked = self.settings['float_classic']
+        self.menu.buttons[2].callback = self.toggle_float_setting
+        self.menu.add_button(text='Adult mode', checkbox=True)
+        self.menu.buttons[3].checked = self.settings['xtra']
+        self.menu.buttons[3].callback = self.toggle_adult_mode_setting
 
 
     def toggle_adult_mode_setting(self, sender):
@@ -640,7 +588,7 @@ class App:
             self.sprite_handler.draw()
         self.draw_fps()
         # self.touch_image.draw(self.screen)
-        # self.menu.draw(self.screen)
+        self.menu.draw(self.screen)
 
     def draw_fps(self):
         fps_text = f'{self.clock.get_fps() :.0f} FPS'
@@ -750,7 +698,6 @@ class App:
 if __name__ == '__main__':
     character = 'TestChar'
     working_dir = os.getcwd()
-    data_directory = working_dir + character + '\\Data\\'
     config_filename = 'config.ini'
     # faz_inflate(data_directory + 'EMAIL.FAZ', save_to_file=True)
     # file_name = 'TEST_FILE.FAS'
