@@ -297,7 +297,7 @@ class SpriteUnit(pg.sprite.Sprite):
                                 value = ALIGNMENT_TO_SPRITE_PARENT[x.alignments[i]] + x.offsets[i >> 1][i % 2]
                             else:
                                 value = ALIGNMENT_TO_SCREEN[x.alignments[i]] + x.offsets[i >> 1][i % 2]
-                                print(value)
+                                # print(value)
                             if i == 0:
                                 self.fence_rect.left = value
                             elif i == 1:
@@ -349,11 +349,11 @@ class SpriteUnit(pg.sprite.Sprite):
                                         i.terminate_repeat = True
                     elif isinstance(x, int):  # frame
                         # print(x, end='|')
-                        # if x in list(self.handler.app.frames_extra.keys()):
-                        #     self.image_ind = list(self.handler.app.frames_extra.keys()).index(x) \
-                        #                      + len(self.handler.app.frames)
-                        # else:
-                        self.image_ind = list(self.handler.app.frames.keys()).index(x)
+                        if x in list(self.handler.app.frames_extra.keys()):
+                            self.image_ind = list(self.handler.app.frames_extra.keys()).index(x) \
+                                             + len(self.handler.app.frames)
+                        elif x in list(self.handler.app.frames.keys()):
+                            self.image_ind = list(self.handler.app.frames.keys()).index(x)
                         self.flip()
                         if to_be_fenced:
                             to_be_fenced = False
@@ -473,6 +473,7 @@ class App:
         pg.init()
         self.sequences = {}
         self.frames = {}
+        self.frames_extra = {}
         self.sounds = {}
         self.clicked_sprite = None
         self.touch_color = ''
@@ -511,7 +512,8 @@ class App:
         pg.display.flip()
         self.work_dir = working_dir
         self.character = character
-        self.data_directory = working_dir + character + '\\Data\\'
+        # self.data_directory = working_dir + character + '\\Data\\'
+        self.data_directory = r'E:\\VBoxShared\\TahniDeskMate\\'
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
         for file in glob.glob(WAS_WILDCARD, root_dir = self.data_directory):
             was_file = WASData(self.data_directory + file, self, False)
@@ -533,16 +535,13 @@ class App:
         # print(self.main_fas_files)
         for file in self.main_fas_files:
             file_data = FASData(self.data_directory + file, self)
-            if file.startswith(COMMON_FILENAME.casefold()) or file.startswith(TOUCH_FILENAME.casefold()):
-                if not(file.endswith(DEMO_SUFFIX.casefold() + FAS_EXTENSION)) != self.settings['simulate_demo']:
+            if file.casefold().startswith(COMMON_FILENAME.casefold()) or file.casefold().startswith(TOUCH_FILENAME.casefold()):
+                if not(file.casefold().endswith(DEMO_SUFFIX.casefold() + FAS_EXTENSION.casefold())) != self.settings['simulate_demo']:
                         self.sequences.update(file_data.sequences)
             else:
-                # pass
                 self.sequences.update(file_data.sequences)
+
         self.sprite_handler = SpriteHandler(self)
-        # self.sprite_handler.images_extra = [pil_image_to_surface(self.frames_extra[i], True)
-        #                                     for i in self.frames_extra]
-        # self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2)
         self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2)
         self.sprite_handler.sprites[0].seq_name = 'S_Deskmate_Enter'
         # self.sprite_handler.sprites[0].seq_name = 'all'
@@ -550,7 +549,6 @@ class App:
         self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.casefold()]]
         # self.sprite_handler.sprites[0].seq_data = [['T0x404040DOWN','T0x404040START',
         #                                             SeqRepeat('T0x404040LOOP',10),'T0x404040STOP']]
-        self.running = True
         self.menu = ButtonMenu(self, 0, 0)
         self.menu.add_button(text='Settings')
         self.menu.add_button(text='Sound on', checkbox=True)
@@ -562,6 +560,7 @@ class App:
         self.menu.add_button(text='Adult mode', checkbox=True)
         self.menu.buttons[3].checked = self.settings['xtra']
         self.menu.buttons[3].callback = self.toggle_adult_mode_setting
+        self.running = True
 
 
     def toggle_adult_mode_setting(self, sender):

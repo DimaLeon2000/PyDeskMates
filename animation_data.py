@@ -200,7 +200,7 @@ def parse_sequence_part(__part):  # INCOMPLETE
         if groups[0]:
             for i in groups[0]:
                 if i == '-':
-                    temp_spr_flags |= 1  # centering
+                    temp_spr_flags |= 1  # one layer back
                 elif i == '#':
                     temp_spr_flags |= 2  # attach to the parent sprite
         return AddTempSprite([parse_sequence_part(groups[1])], temp_spr_flags)
@@ -255,7 +255,7 @@ def parse_sequence_part(__part):  # INCOMPLETE
     elif re.match(REGEX_FENCING, __part):
         # print('You have selected: FENCING')
         values = list(re.match(REGEX_FENCING, __part).groups())
-        print(values)
+        # print(values)
         alignments = []
         modes = []
         offsets = []
