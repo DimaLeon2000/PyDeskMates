@@ -449,6 +449,10 @@ class SpriteHandler:
                     if j.parent_spr == i and j.flags & 4:
                         i.image.blit(source=j.image, dest=(j.x - i.x, j.y - i.y), special_flags=pg.BLEND_RGBA_SUB)
 
+    def update_frames(self):
+        self.images = [pil_image_to_surface(app.frames[i], True)
+                       for i in app.frames]
+
     def draw(self):
         for i in self.sprites:
             if not i.flags & 4:
@@ -512,8 +516,7 @@ class App:
         pg.display.flip()
         self.work_dir = working_dir
         self.character = character
-        # self.data_directory = working_dir + character + '\\Data\\'
-        self.data_directory = r'E:\\VBoxShared\\TahniDeskMate\\'
+        self.data_directory = working_dir + character + '\\Data\\'
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
         for file in glob.glob(WAS_WILDCARD, root_dir = self.data_directory):
             was_file = WASData(self.data_directory + file, self, False)
@@ -549,7 +552,7 @@ class App:
         self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.casefold()]]
         # self.sprite_handler.sprites[0].seq_data = [['T0x404040DOWN','T0x404040START',
         #                                             SeqRepeat('T0x404040LOOP',10),'T0x404040STOP']]
-        self.menu = ButtonMenu(self, 0, 0)
+        self.menu = ButtonMenu(self, [0, 0])
         self.menu.add_button(text='Settings')
         self.menu.add_button(text='Sound on', checkbox=True)
         self.menu.buttons[1].checked = self.settings['sound_on']

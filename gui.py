@@ -1,22 +1,55 @@
 import pygame as pg
 from settings import FONT_SIZE
-import bit_reader
 
-HOVER_COLOR = '#90C0FF'
+HOVER_COLOR = '#D0E0FF'
 
 
-class Button:
-    def __init__(self, app, x, y, text):
+class Widget:
+    def __init__(self, app, pos=[0, 0], size=[1, 1]):
+        self.app = app
+        self.pos = list(pos)
+        self.size = list(size)
+        self.rect = pg.Rect(pos, size)
+
+    def set_position(self, pos):
+        self.pos = list(pos)
+        self.rect = pg.Rect(pos, self.size)
+
+    def set_size(self, size):
+        self.size = list(size)
+        self.rect = pg.Rect(self.pos, size)
+
+    def get_position(self):
+        return self.pos
+
+    def get_size(self):
+        return self.size
+
+    def get_x(self):
+        return self.pos[0]
+
+    def get_y(self):
+        return self.pos[1]
+
+    def get_width(self):
+        return self.size[0]
+
+    def get_height(self):
+        return self.size[1]
+
+    def draw(self, surface):
+        pass
+
+class Button(Widget):
+    def __init__(self, app, pos, text):
         self.app = app
         self.padding = 4
         self.text = str(text)
         self.text_rect = self.app.font.get_rect(self.text, size=FONT_SIZE)
         self.char_rect = self.app.font.get_rect('A', size=FONT_SIZE)
-        self.rect = pg.rect.Rect(x, y,
-                                 self.text_rect.width + self.padding * 2,
-                                 self.char_rect.height + self.padding * 2)
-        self.x = x
-        self.y = y
+        self.pos = list(pos)
+        self.size = [self.text_rect.width + self.padding * 2, self.char_rect.height + self.padding * 2]
+        self.rect = pg.rect.Rect(pos, self.size)
         self.hovered = False
         self.clicked = False
         self.callback = None
@@ -41,24 +74,24 @@ class Button:
         rect_color = HOVER_COLOR if self.hovered else 'white'
         pg.draw.rect(surface=surface, color=rect_color,
                      rect=self.rect)
-        self.app.font.render_to(surface, (self.x + self.padding, self.y + self.padding),
+        self.app.font.render_to(surface, (self.pos[0] + self.padding, self.pos[1] + self.padding),
                                      text=str(self.text), size=FONT_SIZE, fgcolor='black')
         return action
 
     def set_text(self, text):
         self.text = str(text)
         self.text_rect = self.app.font.get_rect(self.text, size=FONT_SIZE)
-        self.rect = pg.rect.Rect(self.x, self.y + self.char_rect.top,
-                                 self.text_rect.width + self.padding * 2,
-                                 self.char_rect.height + self.padding * 2)
+        self.set_size_to_fit_text()
 
+    def set_size_to_fit_text(self):
+        self.set_size([self.text_rect.width + self.padding * 2, self.char_rect.height + self.padding * 2])
 
 class ButtonCheckbox(Button):
-    def __init__(self, app, x, y, text):
-        super().__init__(app, x, y, text)
-        self.rect = pg.rect.Rect(x, y,
-                                 self.char_rect.height + self.text_rect.width + 2 + self.padding * 2 + 4,
-                                 self.char_rect.height + 1 + self.padding * 2)
+    def __init__(self, app, pos, text):
+        super().__init__(app, pos, text)
+        self.set_size_to_fit_text()
+        # self.set_size([self.char_rect.height + self.text_rect.width + 2 + self.padding * 2 + 4,
+        #                self.char_rect.height + 1 + self.padding * 2])
         self.checked = False
 
     def draw(self, surface):
@@ -82,47 +115,51 @@ class ButtonCheckbox(Button):
         rect_color = HOVER_COLOR if self.hovered else 'white'
         pg.draw.rect(surface=surface, color=rect_color,
                      rect=self.rect)
-        self.app.font.render_to(surface, (self.x + self.char_rect.height + self.padding + 5,
-                                          self.y + self.padding),
+        self.app.font.render_to(surface, (self.pos[0] + self.char_rect.height + self.padding + 5,
+                                          self.pos[1] + self.padding),
                                      text=str(self.text), size=FONT_SIZE, fgcolor='black')
         if self.checked:
-            pg.draw.lines(surface=surface, color='green2', closed=False,
-                          points=[(self.x + self.padding,
-                                   self.y + self.padding),
-                                  (self.x + self.char_rect.height + self.padding,
-                                   self.y + self.char_rect.height + self.padding)],
+            pg.draw.lines(surface=surface, color='green3', closed=False,
+                          points=[(self.pos[0] + self.padding,
+                                   self.pos[1] + self.padding),
+                                  (self.pos[0] + self.char_rect.height + self.padding,
+                                   self.pos[1] + self.char_rect.height + self.padding)],
                           width=1)
-            pg.draw.lines(surface=surface, color='green2', closed=False,
-                          points=[(self.x + self.padding,
-                                   self.y + self.char_rect.height + self.padding),
-                                  (self.x + self.char_rect.height + self.padding,
-                                   self.y + self.padding)],
+            pg.draw.lines(surface=surface, color='green3', closed=False,
+                          points=[(self.pos[0] + self.padding,
+                                   self.pos[1] + self.char_rect.height + self.padding),
+                                  (self.pos[0] + self.char_rect.height + self.padding,
+                                   self.pos[1] + self.padding)],
                           width=1)
         pg.draw.rect(surface=surface, color='black',
-                     rect=[self.x + self.padding, self.y + self.padding,
+                     rect=[self.pos[0] + self.padding, self.pos[1] + self.padding,
                            self.char_rect.height + 1, self.char_rect.height + 1], width = 1)
         return action
 
     def set_text(self, text):
         self.text = str(text)
         self.text_rect = self.app.font.get_rect(self.text, size=FONT_SIZE)
-        self.rect = pg.rect.Rect(self.x, self.y,
-                                 self.char_rect.height + self.text_rect.width + self.padding * 2 + 4,
-                                 self.char_rect.height + self.padding * 2)
+        self.set_size_to_fit_text(self)
+
+    def set_size_to_fit_text(self):
+        self.set_size([self.char_rect.height + self.text_rect.width + self.padding * 2 + 4,
+                                 self.char_rect.height + self.padding * 2])
 
 
-class ButtonMenu:
-    def __init__(self, app, x, y):
+class ButtonMenu(Widget):
+    def __init__(self, app, pos, size=[1, 1]):
         self.app = app
-        self.x, self.y = x, y
+        self.pos = list(pos)
+        self.size = list(size)
+        self.rect = pg.Rect(pos, size)
         self.buttons = []
 
     def add_button(self, text, checkbox=False):
-        last_y = self.y if len(self.buttons) == 0 else self.buttons[-1].y+self.buttons[-1].rect.height
+        last_y = self.pos[1] if len(self.buttons) == 0 else self.buttons[-1].pos[1]+self.buttons[-1].rect.height
         if checkbox:
-            self.buttons.append(ButtonCheckbox(app=self.app, x=self.x, y=last_y, text=text))
+            self.buttons.append(ButtonCheckbox(app=self.app, pos=[self.pos[0], last_y], text=text))
         else:
-            self.buttons.append(Button(app=self.app, x=self.x, y=last_y, text=text))
+            self.buttons.append(Button(app=self.app, pos=[self.pos[0], last_y], text=text))
         self.update_menu_width()
 
     def draw(self, surface):
@@ -130,6 +167,10 @@ class ButtonMenu:
             button.draw(surface)
 
     def update_menu_width(self):
-        max_rect_width = max([i.rect.width for i in self.buttons])
+        max_rect_width = max([i.size[0] for i in self.buttons])
+        print(max([i.size[0] for i in self.buttons]))
         for button in self.buttons:
             button.rect.width = max_rect_width
+        self.size[0] = max_rect_width
+        self.size[1] = sum([i.size[1] for i in self.buttons])
+        self.rect = pg.Rect(self.pos,self.size)
