@@ -28,7 +28,7 @@ COMMON_FILENAME = 'common'
 TOUCH_FILENAME = 'touch'
 DEMO_SUFFIX = '_demo'
 DEMAND_LOAD_ONLY_LIST_FILE = 'demand_load_only_list.txt'
-NO_ALL_LIST_FILE = 'no_all_list.txt'
+NO_ALL_LIST_FILE = 'no_all_list.txt' # FAS files that don't have either sequences: "all", "all_slow",
 
 
 def pil_image_to_surface(pil_image, alpha=False):
@@ -514,9 +514,9 @@ class App:
         self.font.render_to(self.screen, loading_text_rect, text=LOADING_TEXT, fgcolor='white',
                             rotation=0, size=FONT_SIZE * 4, style=ft.STYLE_STRONG)
         pg.display.flip()
-        self.work_dir = working_dir
+        self.working_directory = working_directory
         self.character = character
-        self.data_directory = working_dir + character + '\\Data\\'
+        self.data_directory = working_directory + '\\' + character + '\\Data\\'
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
         for file in glob.glob(WAS_WILDCARD, root_dir = self.data_directory):
             was_file = WASData(self.data_directory + file, self, False)
@@ -530,7 +530,8 @@ class App:
             # del was_file
         if os.path.exists(self.data_directory + DEMAND_LOAD_ONLY_LIST_FILE)\
             and os.path.isfile(self.data_directory + DEMAND_LOAD_ONLY_LIST_FILE):
-            demand_load_only_list = [i.strip('\n') for i in open(self.data_directory + DEMAND_LOAD_ONLY_LIST_FILE)]
+            demand_load_only_list = [i.strip('\n').casefold() for i in open(self.data_directory
+                                                                            + DEMAND_LOAD_ONLY_LIST_FILE)]
             self.main_fas_files = [*filter(lambda load_only: not load_only in demand_load_only_list,
                                         glob.glob(FAS_WILDCARD, root_dir = self.data_directory))]
         else:
@@ -564,6 +565,12 @@ class App:
         self.menu.buttons[3].checked = self.settings['xtra']
         self.menu.buttons[3].callback = self.toggle_adult_mode_setting
         self.running = True
+
+
+    def load_extra_sequence(self):
+        if not os.path.exists(working_directory + r'\\temp\\'):
+            os.mkdir(working_directory + r'\\temp\\')
+
 
 
     def toggle_adult_mode_setting(self, sender):
@@ -699,7 +706,7 @@ class App:
 
 if __name__ == '__main__':
     character = 'TestChar'
-    working_dir = os.getcwd()
+    working_directory = os.getcwd()
     config_filename = 'config.ini'
     # faz_inflate(data_directory + 'EMAIL.FAZ', save_to_file=True)
     # file_name = 'TEST_FILE.FAS'
