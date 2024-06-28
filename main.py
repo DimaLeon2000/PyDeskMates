@@ -28,7 +28,7 @@ COMMON_FILENAME = 'common'
 TOUCH_FILENAME = 'touch'
 DEMO_SUFFIX = '_demo'
 DEMAND_LOAD_ONLY_LIST_FILE = 'demand_load_only_list.txt'
-NO_ALL_LIST_FILE = 'no_all_list.txt' # FAS files that don't have either sequences: "all", "all_slow",
+NO_ALL_LIST_FILE = 'no_all_list.txt' # FAS files that don't have "all" and/or "all_slow" sequences
 
 
 def pil_image_to_surface(pil_image, alpha=False):
