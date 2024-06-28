@@ -18,15 +18,15 @@ LINE_CLEAR = '\x1b[2K'
 LOADING_TEXT = 'LOADING...'
 ORIGINAL_FRAMERATE = 10
 TOUCH_STATES = ('up', 'down', 'start', 'loop', 'stop')
-FAS_EXTENSION = '.FAS'
-FAZ_EXTENSION = '.FAZ'
-FAS_WILDCARD = '*.FAS'
-FAZ_WILDCARD = '*.FAZ'
-WAS_WILDCARD = '*.WAS'
-WA3_WILDCARD = '*.WA3'
-COMMON_FILENAME = 'COMMON'
-TOUCH_FILENAME = 'TOUCH'
-DEMO_SUFFIX = '_DEMO'
+FAS_EXTENSION = '.fas'
+FAZ_EXTENSION = '.faz'
+FAS_WILDCARD = '*.fas'
+FAZ_WILDCARD = '*.faz'
+WAS_WILDCARD = '*.was'
+WA3_WILDCARD = '*.wa3'
+COMMON_FILENAME = 'common'
+TOUCH_FILENAME = 'touch'
+DEMO_SUFFIX = '_demo'
 DEMAND_LOAD_ONLY_LIST_FILE = 'demand_load_only_list.txt'
 NO_ALL_LIST_FILE = 'no_all_list.txt'
 
@@ -127,11 +127,11 @@ def faz_inflate(packed_path, save_to_file):
     # if not (os.path.exists(anim_name + '.FAS')):
     if save_to_file:
         try:
-            anim_file = open(anim_name.casefold() + FAS_EXTENSION.casefold(), 'wb+')
+            anim_file = open(anim_name.casefold() + FAS_EXTENSION, 'wb+')
             anim_file.write(anim_data)
         finally:
             anim_file.close()
-            return anim_name.casefold() + FAS_EXTENSION.casefold()
+            return anim_name.casefold() + FAS_EXTENSION
     else:
         return anim_data
 
@@ -538,8 +538,8 @@ class App:
         # print(self.main_fas_files)
         for file in self.main_fas_files:
             file_data = FASData(self.data_directory + file, self)
-            if file.casefold().startswith(COMMON_FILENAME.casefold()) or file.casefold().startswith(TOUCH_FILENAME.casefold()):
-                if not(file.casefold().endswith(DEMO_SUFFIX.casefold() + FAS_EXTENSION.casefold())) != self.settings['simulate_demo']:
+            if file.casefold().startswith(COMMON_FILENAME) or file.casefold().startswith(TOUCH_FILENAME):
+                if not(file.casefold().endswith(DEMO_SUFFIX + FAS_EXTENSION)) != self.settings['simulate_demo']:
                         self.sequences.update(file_data.sequences)
             else:
                 self.sequences.update(file_data.sequences)
