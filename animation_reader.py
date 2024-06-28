@@ -49,6 +49,9 @@ class FASReader:
             # print(bitmap_info)
         if self.header['version'] >= 1:
             self.char_id = self.read_1_byte(offset=self.header['header_size'] + bitmap_infos_size)
+            # the XOR of ASCII values of characters in the character name string in uppercase
+            # (e.g. "MAEKA" = 0x4D ^ 0x41 ^ 0x45 ^ 0x4B ^ 0x41 = 0x43,
+            # "JOHLEE" = 0x4A ^ ^ 0x4F ^ 0x48 ^ 0x4C ^ 0x45 ^ 0x45 = 0x01)
         if self.header['version'] >= 2:
             self.extra_sprite_files = self.read_extra_sprite_files(self.header['header_size'] + bitmap_infos_size
                                                                    + int(self.header['version'] >= 1))
