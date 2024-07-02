@@ -46,7 +46,7 @@ class Button(Widget):
         self.padding = 4
         self.text = str(text)
         self.text_rect = self.app.font.get_rect(self.text, size=FONT_SIZE)
-        self.char_rect = self.app.font.get_rect('A', size=FONT_SIZE)
+        self.char_rect = self.app.font.get_rect('Ag', size=FONT_SIZE)
         self.pos = list(pos)
         self.size = [self.text_rect.width + self.padding * 2, self.char_rect.height + self.padding * 2]
         self.rect = pg.rect.Rect(pos, self.size)
@@ -139,7 +139,6 @@ class ButtonCheckbox(Button):
     def set_text(self, text):
         self.text = str(text)
         self.text_rect = self.app.font.get_rect(self.text, size=FONT_SIZE)
-        self.set_size_to_fit_text(self)
 
     def set_size_to_fit_text(self):
         self.set_size([self.char_rect.height + self.text_rect.width + self.padding * 2 + 4,
@@ -147,7 +146,7 @@ class ButtonCheckbox(Button):
 
 
 class ButtonMenu(Widget):
-    def __init__(self, app, pos, size=[1, 1]):
+    def __init__(self, app, pos=[0, 0], size=[1, 1]):
         self.app = app
         self.pos = list(pos)
         self.size = list(size)
@@ -168,9 +167,13 @@ class ButtonMenu(Widget):
 
     def update_menu_width(self):
         max_rect_width = max([i.size[0] for i in self.buttons])
-        print(max([i.size[0] for i in self.buttons]))
         for button in self.buttons:
-            button.rect.width = max_rect_width
-        self.size[0] = max_rect_width
-        self.size[1] = sum([i.size[1] for i in self.buttons])
-        self.rect = pg.Rect(self.pos,self.size)
+            button.set_size([max_rect_width, button.get_height()])
+        self.set_size([max_rect_width, sum([i.size[1] for i in self.buttons])])
+
+    def set_position(self, pos):
+        next_pos = [0, 0]
+        super().set_position(pos)
+        for button in self.buttons:
+            button.set_position([x + y for x, y in zip(pos, next_pos)])
+            next_pos[1] += button.get_height()

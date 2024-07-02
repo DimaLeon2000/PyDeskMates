@@ -11,42 +11,15 @@ class FASReader:
         self.bitmap_infos = []
         bitmap_infos_size = 0
         for i in range(self.header['doublepal_count'] * 2):
-            # bitmap_info = {
-            #     'header_size': self.read_4_bytes(offset=self.header['header_size'] + bitmap_infos_size,
-            #                                      byte_format='I'),
-            #     'width': self.read_4_bytes(offset=self.header['header_size'] + 4 + bitmap_infos_size),
-            #     'height': self.read_4_bytes(offset=self.header['header_size'] + 8 + bitmap_infos_size),
-            #     'planes': self.read_2_bytes(offset=self.header['header_size'] + 12 + bitmap_infos_size),
-            #     'bpp': self.read_2_bytes(offset=self.header['header_size'] + 14 + bitmap_infos_size),
-            #     'compression': self.read_4_bytes(offset=self.header['header_size'] + 16 + bitmap_infos_size,
-            #                                      byte_format='I'),
-            #     'image_size': self.read_4_bytes(offset=self.header['header_size'] + 20 + bitmap_infos_size,
-            #                                     byte_format='I'),
-            #     'temp': [self.read_4_bytes(offset=self.header['header_size'] + 24 + bitmap_infos_size),
-            #              self.read_4_bytes(offset=self.header['header_size'] + 28 + bitmap_infos_size),
-            #              self.read_4_bytes(offset=self.header['header_size'] + 32 + bitmap_infos_size,
-            #                                byte_format='I'),
-            #              self.read_4_bytes(offset=self.header['header_size'] + 36 + bitmap_infos_size,
-            #                                byte_format='I')],
-            #     'colormap': []
-            # }
-            # for j in range(bitmap_info['temp'][2] if (bitmap_info['temp'][2] != 0) else 2 ** bitmap_info['bpp']):
-            #     bitmap_info['colormap'].append(self.read_4_bytes(offset=self.header['header_size'] + 40 +
-            #                                                     bitmap_infos_size + j * 4, byte_format='I'))
             bitmap_info_header_size = self.read_4_bytes(offset=self.header['header_size'] + bitmap_infos_size,
                                                         byte_format='I')
             bpp = self.read_2_bytes(offset=self.header['header_size'] + 14 + bitmap_infos_size)
-            # colors_used = self.read_4_bytes(offset=self.header['header_size']
-            #                                        + 32 + bitmap_infos_size, byte_format='I')
-            # print(hex(self.header['header_size'] + bitmap_infos_size)+':', bitmap_info_header_size, colors_used)
             bitmap_info = struct.pack('<I', bitmap_info_header_size) + struct.pack('<i', self.header['width'])\
                           + struct.pack('<i', self.header['height']) +\
                           self.read_bytes_raw(offset=self.header['header_size'] + 12 + bitmap_infos_size,
                                               num_bytes=bitmap_info_header_size - 12 + (2 ** bpp)*4)
             self.bitmap_infos.append(bitmap_info)
-            # bitmap_infos_size += bitmap_info['header_size'] + len(bitmap_info['colormap']) * 4
             bitmap_infos_size += len(bitmap_info)
-            # print(bitmap_info)
         if self.header['version'] >= 1:
             self.char_id = self.read_1_byte(offset=self.header['header_size'] + bitmap_infos_size)
             # the XOR of ASCII values of characters in the character name string in uppercase
@@ -85,11 +58,6 @@ class FASReader:
                                               + int(self.header['version'] >= 2) * self.extra_sprite_files['size']
                                               + int(self.header['version'] >= 3) * 2,
                                               num_bytes=touch_width * self.header['height'])
-                # 'bitmap': self.read_bytes_iter(offset=self.header['header_size'] + bitmap_infos_size
-                #                           + int(self.header['version'] >= 1) + touch_colors * 4 + 4
-                #                           + int(self.header['version'] >= 2) * self.extra_sprites['size']
-                #                           + int(self.header['version'] >= 3) * 2,
-                #                           num_bytes=touch_width * self.header['height'], byte_format='B')
             }
             self.seq_offset = (self.header['header_size'] + bitmap_infos_size + int(self.header['version'] >= 1) + 2
                                + int(self.header['version'] >= 2) * self.extra_sprite_files['size']
@@ -112,12 +80,6 @@ class FASReader:
 
         self.frames_header = self.read_frames_header(self.seq_offset + self.seq_header['total_size']
                                                      + (self.header['version'] >= 1))
-        # self.frames_bitmap = [list(self.read_bytes_iter(offset=self.seq_offset + self.seq_header['total_size']
-        #                                                 + (self.header['version'] >= 1) + 4
-        #                                                 + self.frames_header['count'] * 3 + i
-        #                                                 * self.header['frame_size'],
-        #                                                 num_bytes=self.header['frame_size'], byte_format='B'))
-        #                       for i in range(self.frames_header['count'])]
         self.frames_bitmap = [self.read_bytes_raw(offset=self.seq_offset + self.seq_header['total_size']
                                                   + (self.header['version'] >= 1) + 4
                                                   + self.frames_header['count'] * 3 + i
@@ -130,8 +92,8 @@ class FASReader:
         return {
             'size': max(6, self.read_4_bytes(offset=__offset)),
             'counts': self.read_2_bytes(offset=__offset+4),
-            'files': self.read_stringlist_iso(offset=__offset+6,
-                                              num_bytes=self.read_4_bytes(offset=__offset) - 6)[:-1]
+            'files': self.read_string_list_iso(offset=__offset + 6,
+                                               num_bytes=self.read_4_bytes(offset=__offset) - 6)[:-1]
         }
 
     def read_frames_header(self, __offset):
@@ -167,12 +129,12 @@ class FASReader:
         directory = []
         for i in range(self.seq_header['seq_count']):
             offset = __offset + i * 8
-            sound_offset = {
+            sequence_offset = {
                 'id': i,
                 'name_offset': self.read_4_bytes(offset),
                 'data_offset': self.read_4_bytes(offset + 4)
             }
-            directory.append(sound_offset)
+            directory.append(sequence_offset)
         return directory
 
     def read_seq_header(self, __offset):
@@ -207,7 +169,7 @@ class FASReader:
         # I - uint32, i - int32
         return self.read_bytes(offset=offset, num_bytes=4, byte_format=byte_format)[0]
 
-    def read_stringlist_iso(self, offset, num_bytes):
+    def read_string_list_iso(self, offset, num_bytes):
         # c - char
         return ''.join(b.decode('iso_8859_1') for b in
                        self.read_bytes(offset, num_bytes, byte_format='c' * num_bytes)

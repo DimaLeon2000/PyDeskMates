@@ -16,7 +16,7 @@ import zlib
 LINE_UP = '\033[1A'
 LINE_CLEAR = '\x1b[2K'
 LOADING_TEXT = 'LOADING...'
-ORIGINAL_FRAMERATE = 10
+ORIGINAL_FRAME_RATE = 10
 TOUCH_STATES = ('up', 'down', 'start', 'loop', 'stop')
 FAS_EXTENSION = '.fas'
 FAZ_EXTENSION = '.faz'
@@ -31,6 +31,8 @@ DEMAND_LOAD_ONLY_LIST_FILE = 'demand_load_only_list.txt'
 NO_ALL_LIST_FILE = 'no_all_list.txt'
 # FAS files that don't have the following sequences:
 # "all", "all_demo", "all_fast", "all_fast_demo", "all_slow", and "all_slow_demo"
+XTRA_LIST_FILE = 'xtra.txt'
+# FAS/FAZ files that are exclusive to the Adult Mode
 
 
 def pil_image_to_surface(pil_image, alpha=False):
@@ -118,7 +120,7 @@ def fas_deflate(anim_path):
         faz_file.close()
 
 
-def faz_inflate(packed_path, save_to_file):
+def faz_inflate(packed_path, save_to_file, save_location=''):
     anim_name = os.path.splitext(os.path.basename(packed_path))[0]
     packed_file = open(packed_path, 'rb')
     packed_file.seek(4)
@@ -129,7 +131,7 @@ def faz_inflate(packed_path, save_to_file):
     # if not (os.path.exists(anim_name + '.FAS')):
     if save_to_file:
         try:
-            anim_file = open(anim_name.casefold() + FAS_EXTENSION, 'wb+')
+            anim_file = open(save_location + anim_name.casefold() + FAS_EXTENSION, 'wb+')
             anim_file.write(anim_data)
         finally:
             anim_file.close()
@@ -154,7 +156,7 @@ class SpriteUnit(pg.sprite.Sprite):
         self.temporary = False
         self.parent_spr = None
         self.anchored_to_parent = False
-        self.seq_name = ''
+        # self.seq_name = ''
         self.seq_data = [[]]
         self.seq_data_sub = []
         self.touch_state = 0
@@ -214,11 +216,10 @@ class SpriteUnit(pg.sprite.Sprite):
         self.rect.topleft = self.x, self.y
 
     def update(self):
-        x = None
         adding_sprite_data = None
         to_be_fenced = False
         if self.frame_delay > 0:
-            # self.frame_delay -= self.handler.app.clock.tick(ORIGINAL_FRAMERATE)
+            # self.frame_delay -= self.handler.app.clock.tick(ORIGINAL_FRAME_RATE)
             self.frame_delay -= 1
             return False
         if len(self.seq_data) >= 1 and self.frame_delay <= 0:
@@ -261,7 +262,6 @@ class SpriteUnit(pg.sprite.Sprite):
                         for i in x:
                             self.seq_data[-1].insert(j, i)
                             j += 1
-                        j = 0
                     elif isinstance(x, AddTempSprite):  # adding co-sprites
                         adding_sprite_data = x
                     elif isinstance(x, FloatRandomVelocity):  # floating
@@ -275,30 +275,37 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.seq_data.append(flatten([parse_sequence_part(random.choices(x.sequences, x.weights,
                                                                                          k=1)[0])]))
                     elif isinstance(x, SetFenceRegion):
-                        ALIGNMENT_TO_SPRITE_HOME = {
+                        alignment_to_sprite_home = {
                             'l': self.handler.app.settings['home_pos'][0],  # horizontal
                             'c': self.handler.app.settings['home_pos'][0] + self.rect.width // 2,
                             'r': self.handler.app.settings['home_pos'][0] + self.rect.width,
                             't': self.handler.app.settings['home_pos'][1],  # vertical
                             'm': self.handler.app.settings['home_pos'][1] + self.rect.height // 2,
                             'b': self.handler.app.settings['home_pos'][1] + self.rect.height}
-                        if self.parent_spr is not None:
-                            ALIGNMENT_TO_SPRITE_PARENT = {
-                                'l': self.parent_spr.x,  # horizontal
-                                'c': self.parent_spr.x + self.rect.width // 2,
-                                'r': self.parent_spr.x + self.rect.width,
-                                't': self.parent_spr.y,  # vertical
-                                'm': self.parent_spr.y + self.rect.height // 2,
-                                'b': self.parent_spr.y + self.rect.height}
                         if not self.fence_rect:
                             self.fence_rect = pg.rect.Rect(0, 0, 0, 0)
+                        if not x.offsets:
+                            x.offsets = [pg.Vector2(0,0), pg.Vector2(0,0)]
                         for i in range(4):
                             if x.modes[i] == 1:
-                                value = ALIGNMENT_TO_SPRITE_HOME[x.alignments[i]] + x.offsets[i >> 1][i % 2]
-                            elif x.modes[i] == 3 and self.parent_spr is not None:
-                                value = ALIGNMENT_TO_SPRITE_PARENT[x.alignments[i]] + x.offsets[i >> 1][i % 2]
+                                value = alignment_to_sprite_home[x.alignments[i]]
+                                if len(x.offsets[i >> 1]) > 0:
+                                    value += x.offsets[i >> 1][i % 2]
+                            elif x.modes[i] == 3 and self.parent_spr:
+                                alignment_to_sprite_parent = {
+                                    'l': self.parent_spr.x,  # horizontal
+                                    'c': self.parent_spr.x + self.rect.width // 2,
+                                    'r': self.parent_spr.x + self.rect.width,
+                                    't': self.parent_spr.y,  # vertical
+                                    'm': self.parent_spr.y + self.rect.height // 2,
+                                    'b': self.parent_spr.y + self.rect.height}
+                                value = alignment_to_sprite_parent[x.alignments[i]]
+                                if len(x.offsets[i >> 1]) > 0:
+                                    value += x.offsets[i >> 1][i % 2]
                             else:
-                                value = ALIGNMENT_TO_SCREEN[x.alignments[i]] + x.offsets[i >> 1][i % 2]
+                                value = ALIGNMENT_TO_SCREEN[x.alignments[i]]
+                                if len(x.offsets[i >> 1]) > 0:
+                                    value += x.offsets[i >> 1][i % 2]
                                 # print(value)
                             if i == 0:
                                 self.fence_rect.left = value
@@ -308,7 +315,8 @@ class SpriteUnit(pg.sprite.Sprite):
                                 self.fence_rect.width = value - self.fence_rect.left
                             elif i == 3:
                                 self.fence_rect.height = value - self.fence_rect.top
-                        to_be_fenced = True
+                        if not self.fence_rect.contains(self.rect):
+                            to_be_fenced = True
                     elif isinstance(x, SeqRepeat):  # loop x times
                         if x.repeats > self.loop_count:
                             self.loop_count = int(x.repeats)
@@ -324,17 +332,13 @@ class SpriteUnit(pg.sprite.Sprite):
                     elif isinstance(x, dict):
                         if 'load_fas' in x:  # load external file
                             FASData(self.handler.app.data_directory + x['load_fas'] + '.FAS', self.handler.app, False, True)
-                            self.handler.images = [pil_image_to_surface(self.handler.app.frames[i], True)
-                                                   for i in self.handler.app.frames]
+                            self.handler.update_frames()
                         if 'toggle_flag' in x:  # sprite modification flags
                             self.flags ^= x['toggle_flag']
-                        elif 'sound' in x:  # playing sound (not functioning)
+                        elif 'sound' in x:  # playing sound
                             # print(x)
-                            # print(self.handler.app.sounds[x['sound'].casefold()].get_raw()[:64])
                             if self.handler.app.settings['sound_on']:
                                 self.handler.app.sounds[x['sound'].casefold()].play()
-                            # pass
-                            # break
                         elif 'offset' in x:  # offsetting sprite
                             self.x += int(x['offset'].x)
                             self.y += int(x['offset'].y)
@@ -344,11 +348,12 @@ class SpriteUnit(pg.sprite.Sprite):
                                         i.x += int(x['offset'].x)
                                         i.y += int(x['offset'].y)
                             if self.loop_count >= 1:  # terminate loop on colliding with the "fence"
-                                if not self.fence_rect.contains(self.rect) and self.fence_rect:
-                                    self.rect.clamp_ip(self.fence_rect)
-                                    self.x, self.y = self.rect.left, self.rect.top
-                                    for i in self.handler.sprites:
-                                        i.terminate_repeat = True
+                                if self.fence_rect:
+                                    if not self.fence_rect.contains(self.rect):
+                                        self.rect.clamp_ip(self.fence_rect)
+                                        self.x, self.y = self.rect.left, self.rect.top
+                                        for i in self.handler.sprites:
+                                            i.terminate_repeat = True
                     elif isinstance(x, int):  # frame
                         # print(x, end='|')
                         if x in list(self.handler.app.frames_extra.keys()):
@@ -360,6 +365,7 @@ class SpriteUnit(pg.sprite.Sprite):
                         if to_be_fenced:
                             to_be_fenced = False
                             self.rect.clamp_ip(self.fence_rect)
+                            self.fence_rect = None
                         self.x, self.y = self.rect.left, self.rect.top
                         break
                 else:
@@ -396,9 +402,9 @@ class SpriteUnit(pg.sprite.Sprite):
         self.translate()
         if self.frame_delay <= 0:
             # self.frame_delay = 50
-            self.frame_delay += max(0, (FRAMERATE + ORIGINAL_FRAMERATE / 2) // ORIGINAL_FRAMERATE - 1,
-                                    (self.handler.app.clock.get_fps() + ORIGINAL_FRAMERATE / 2) //
-                                    ORIGINAL_FRAMERATE - 1)
+            self.frame_delay += max(0, (FRAME_RATE + ORIGINAL_FRAME_RATE / 2) // ORIGINAL_FRAME_RATE - 1,
+                                    (self.handler.app.clock.get_fps() + ORIGINAL_FRAME_RATE / 2) //
+                                    ORIGINAL_FRAME_RATE - 1)
         # print(self.seq_data)
         if len(self.seq_data) == 1 and (not self.seq_data[0]):
             if self.temporary:
@@ -427,8 +433,19 @@ class SpriteUnit(pg.sprite.Sprite):
                     if self.touch_state == 4:
                         self.touch_state = 0
                 else:
-                    self.seq_name = 'idle'
-                    self.seq_data = [get_sequence(self.seq_name, self.handler.app)]
+                    # self.seq_name = 'idle'
+                    self.seq_data = [get_sequence('idle', self.handler.app)]
+                    self.handler.app.remove_unpacks()
+                    self.handler.app.load_idle_sequence()
+                    is_demo = self.handler.app.settings['simulate_demo']
+                    if 'all' in self.handler.app.sequences_extra and not is_demo:
+                        self.seq_data[0].append(get_sequence('all', self.handler.app))
+                    elif 'all_demo' in self.handler.app.sequences_extra and is_demo:
+                        self.seq_data[0].append(get_sequence('all_demo', self.handler.app))
+                    elif 'all_slow' in self.handler.app.sequences_extra and not is_demo:
+                        self.seq_data[0].append(get_sequence('all_slow', self.handler.app))
+                    elif 'all_slow_demo' in self.handler.app.sequences_extra and is_demo:
+                        self.seq_data[0].append(get_sequence('all_slow_demo', self.handler.app))
                 # pass
 
 
@@ -452,14 +469,17 @@ class SpriteHandler:
                         i.image.blit(source=j.image, dest=(j.x - i.x, j.y - i.y), special_flags=pg.BLEND_RGBA_SUB)
 
     def update_frames(self):
-        self.images = [pil_image_to_surface(app.frames[i], True)
-                       for i in app.frames]
+        self.images = [pil_image_to_surface(app.frames[i], True) for i in app.frames]
+        if self.app.frames_extra:
+            [self.images.append(pil_image_to_surface(app.frames_extra[i], True)) for i in app.frames_extra]
 
     def draw(self):
         for i in self.sprites:
             if not i.flags & 4:
-                self.app.screen.blit(i.image, (i.rect.left, i.rect.top))
                 # pg.draw.rect(self.app.screen, color='pink', rect=i.rect)
+                # if i.fence_rect:
+                #     pg.draw.rect(self.app.screen, color='red2', rect=i.fence_rect, width=1)
+                self.app.screen.blit(i.image, (i.rect.left, i.rect.top))
                 # pg.draw.lines(self.app.screen, color='red2', closed=True,
                 #               points=[i.fence_rect.topleft, i.fence_rect.topright,
                 #                       i.fence_rect.bottomright, i.fence_rect.bottomleft], width=2)  # fencing region
@@ -478,6 +498,7 @@ class App:
         pg.mixer.init(frequency=self.sample_rate, size=-16, channels=1, buffer=1024)
         pg.init()
         self.sequences = {}
+        self.sequences_extra = {}
         self.frames = {}
         self.frames_extra = {}
         self.sounds = {}
@@ -532,12 +553,15 @@ class App:
             # del was_file
         if os.path.exists(self.data_directory + DEMAND_LOAD_ONLY_LIST_FILE)\
             and os.path.isfile(self.data_directory + DEMAND_LOAD_ONLY_LIST_FILE):
-            demand_load_only_list = [i.strip('\n').casefold() for i in open(self.data_directory
+            self.demand_load_only_list = [i.strip('\n').casefold() for i in open(self.data_directory
                                                                             + DEMAND_LOAD_ONLY_LIST_FILE)]
-            self.main_fas_files = [*filter(lambda load_only: not load_only in demand_load_only_list,
+            self.main_fas_files = [*filter(lambda load_only: not load_only in self.demand_load_only_list,
                                         glob.glob(FAS_WILDCARD, root_dir = self.data_directory))]
         else:
             self.main_fas_files = [*glob.glob(FAS_WILDCARD, root_dir = self.data_directory)]
+        self.sequence_files = [i.casefold() for i in glob.glob('*.FAZ', root_dir = self.data_directory)]
+        if 'email.faz' in self.sequence_files:
+            self.sequence_files.remove('email.faz')
         # print(self.main_fas_files)
         for file in self.main_fas_files:
             file_data = FASData(self.data_directory + file, self)
@@ -549,13 +573,13 @@ class App:
 
         self.sprite_handler = SpriteHandler(self)
         self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2)
-        self.sprite_handler.sprites[0].seq_name = 'S_Deskmate_Enter'
+        # self.sprite_handler.sprites[0].seq_name =
         # self.sprite_handler.sprites[0].seq_name = 'all'
         # self.sprite_handler.sprites[0].temporary = True
-        self.sprite_handler.sprites[0].seq_data = [[self.sprite_handler.sprites[0].seq_name.casefold()]]
+        self.sprite_handler.sprites[0].seq_data = [['S_Deskmate_Enter'.casefold()]]
         # self.sprite_handler.sprites[0].seq_data = [['T0x404040DOWN','T0x404040START',
         #                                             SeqRepeat('T0x404040LOOP',10),'T0x404040STOP']]
-        self.menu = ButtonMenu(self, [0, 0])
+        self.menu = ButtonMenu(self)
         self.menu.add_button(text='Settings')
         self.menu.add_button(text='Sound on', checkbox=True)
         self.menu.buttons[1].checked = self.settings['sound_on']
@@ -566,14 +590,33 @@ class App:
         self.menu.add_button(text='Adult mode', checkbox=True)
         self.menu.buttons[3].checked = self.settings['xtra']
         self.menu.buttons[3].callback = self.toggle_adult_mode_setting
+        self.menu.set_position([i - j for i, j in zip(list(WIN_SIZE), self.menu.get_size())])
         self.running = True
 
 
-    def load_extra_sequence(self):
-        if not os.path.exists(working_directory + r'\\temp\\'):
-            os.mkdir(working_directory + r'\\temp\\')
+    def load_idle_sequence(self):
+        self.frames_extra.clear()
+        self.sequences_extra.clear()
+        seq_file = random.choice(self.sequence_files)
+        if seq_file.endswith(FAZ_EXTENSION):
+            if not os.path.exists(self.working_directory + r'\unpack\\'):
+                os.mkdir(self.working_directory + r'\unpack\\')
+            seq_file = faz_inflate(self.data_directory + seq_file, True, save_location='unpack\\')
+        FASData(self.working_directory + r'\unpack\\' + seq_file, self, True, True)
+        self.sprite_handler.update_frames()
 
 
+    def remove_unpacks(self):
+        if not os.path.exists(self.working_directory + r'\unpack\\'):
+            return
+        folder = self.working_directory + r'\unpack\\'
+        for file in os.listdir(folder):
+            filepath = os.path.join(folder, file)
+            try:
+                if os.path.isfile(filepath) or os.path.islink(filepath):
+                    os.unlink(filepath)
+            except Exception as e:
+                print('Failed to delete %s. Reason: %s' % (filepath, e))
 
     def toggle_adult_mode_setting(self, sender):
         self.settings['xtra'] = sender.checked
@@ -591,7 +634,7 @@ class App:
         pg.display.flip()
         if hasattr(self, 'sprite_handler'):
             self.sprite_handler.update()
-        self.dt = self.clock.tick(FRAMERATE)
+        self.dt = self.clock.tick(FRAME_RATE)
 
     def draw(self):
         self.screen.fill('gray64')
@@ -635,6 +678,7 @@ class App:
                             if s.rect.collidepoint(mouse_pos) and\
                                 bool(s.image.get_at((mouse_pos[0] - s.x, mouse_pos[1] - s.y))[3] >> 7 % 2):
                                 self.clicked_sprite = s
+                                self.remove_unpacks()
                                 break
                         if self.clicked_sprite:
                             for i in self.sounds:
@@ -702,6 +746,7 @@ class App:
         with open(config_filename, 'w') as saving_configfile:
             self.config.write(saving_configfile)
             saving_configfile.close()
+        self.remove_unpacks()
         pg.quit()
         sys.exit()
 
