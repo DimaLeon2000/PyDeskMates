@@ -1,3 +1,5 @@
+import difflib
+
 from audio_data import WASData
 from animation_data import *
 import configparser
@@ -338,7 +340,14 @@ class SpriteUnit(pg.sprite.Sprite):
                         elif 'sound' in x:  # playing sound
                             # print(x)
                             if self.handler.app.settings['sound_on']:
-                                self.handler.app.sounds[x['sound'].casefold()].play()
+                                if x['sound'].casefold() in self.handler.app.sounds:
+                                    self.handler.app.sounds[x['sound'].casefold()].play()
+                                else:
+                                    for i in self.handler.app.sounds.keys():
+                                        if difflib.SequenceMatcher(None, x['sound'].casefold(), i).ratio() >= 0.8:
+                                            x['sound'] = i
+                                            self.handler.app.sounds[x['sound'].casefold()].play()
+                                            break
                         elif 'offset' in x:  # offsetting sprite
                             self.x += int(x['offset'].x)
                             self.y += int(x['offset'].y)
@@ -586,8 +595,6 @@ class App:
         else:
             self.main_fas_files = [*glob.glob(FAS_WILDCARD, root_dir = self.data_directory)]
         self.sequence_files = [i.casefold() for i in glob.glob('*.FAZ', root_dir = self.data_directory)]
-        if 'email.faz' in self.sequence_files:
-            self.sequence_files.remove('email.faz')
         # print(self.main_fas_files)
         for file in self.main_fas_files:
             file_data = FASData(self.data_directory + file, self)
@@ -601,7 +608,7 @@ class App:
     def load_idle_sequence(self):
         self.frames_extra.clear()
         self.sequences_extra.clear()
-        seq_file = random.choice(self.sequence_files)
+        seq_file = random.choice(list(filter(lambda x: x != 'email.faz', self.sequence_files)))
         if seq_file.endswith(FAZ_EXTENSION):
             if not os.path.exists(self.working_directory + r'\unpack\\'):
                 os.mkdir(self.working_directory + r'\unpack\\')
