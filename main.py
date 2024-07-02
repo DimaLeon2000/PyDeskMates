@@ -540,7 +540,33 @@ class App:
         self.working_directory = working_directory
         self.character = character
         self.data_directory = working_directory + '\\' + character + '\\Data\\'
+        self.load_character()
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
+
+        self.sprite_handler = SpriteHandler(self)
+        self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2)
+        # self.sprite_handler.sprites[0].seq_name =
+        # self.sprite_handler.sprites[0].seq_name = 'all'
+        # self.sprite_handler.sprites[0].temporary = True
+        self.sprite_handler.sprites[0].seq_data = [['S_Deskmate_Enter'.casefold()]]
+        # self.sprite_handler.sprites[0].seq_data = [['T0x404040DOWN','T0x404040START',
+        #                                             SeqRepeat('T0x404040LOOP',10),'T0x404040STOP']]
+        self.menu = ButtonMenu(self)
+        self.menu.add_button(text='Settings')
+        self.menu.add_button(text='Sound on', checkbox=True)
+        self.menu.buttons[1].checked = self.settings['sound_on']
+        self.menu.buttons[1].callback = self.toggle_sound_setting
+        self.menu.add_button(text='Classic floating', checkbox=True)
+        self.menu.buttons[2].checked = self.settings['float_classic']
+        self.menu.buttons[2].callback = self.toggle_float_setting
+        self.menu.add_button(text='Adult mode', checkbox=True)
+        self.menu.buttons[3].checked = self.settings['xtra']
+        self.menu.buttons[3].callback = self.toggle_adult_mode_setting
+        self.menu.set_position([i - j for i, j in zip(list(WIN_SIZE), self.menu.get_size())])
+        self.running = True
+
+
+    def load_character(self):
         for file in glob.glob(WAS_WILDCARD, root_dir = self.data_directory):
             was_file = WASData(self.data_directory + file, self, False)
             for i in was_file.sounds:
@@ -571,28 +597,6 @@ class App:
             else:
                 self.sequences.update(file_data.sequences)
 
-        self.sprite_handler = SpriteHandler(self)
-        self.sprite_handler.add_sprite(WIDTH // 2, HEIGHT // 2)
-        # self.sprite_handler.sprites[0].seq_name =
-        # self.sprite_handler.sprites[0].seq_name = 'all'
-        # self.sprite_handler.sprites[0].temporary = True
-        self.sprite_handler.sprites[0].seq_data = [['S_Deskmate_Enter'.casefold()]]
-        # self.sprite_handler.sprites[0].seq_data = [['T0x404040DOWN','T0x404040START',
-        #                                             SeqRepeat('T0x404040LOOP',10),'T0x404040STOP']]
-        self.menu = ButtonMenu(self)
-        self.menu.add_button(text='Settings')
-        self.menu.add_button(text='Sound on', checkbox=True)
-        self.menu.buttons[1].checked = self.settings['sound_on']
-        self.menu.buttons[1].callback = self.toggle_sound_setting
-        self.menu.add_button(text='Classic floating', checkbox=True)
-        self.menu.buttons[2].checked = self.settings['float_classic']
-        self.menu.buttons[2].callback = self.toggle_float_setting
-        self.menu.add_button(text='Adult mode', checkbox=True)
-        self.menu.buttons[3].checked = self.settings['xtra']
-        self.menu.buttons[3].callback = self.toggle_adult_mode_setting
-        self.menu.set_position([i - j for i, j in zip(list(WIN_SIZE), self.menu.get_size())])
-        self.running = True
-
 
     def load_idle_sequence(self):
         self.frames_extra.clear()
@@ -601,7 +605,8 @@ class App:
         if seq_file.endswith(FAZ_EXTENSION):
             if not os.path.exists(self.working_directory + r'\unpack\\'):
                 os.mkdir(self.working_directory + r'\unpack\\')
-            seq_file = faz_inflate(self.data_directory + seq_file, True, save_location='unpack\\')
+            seq_file = faz_inflate(self.data_directory + seq_file, True,
+                                   save_location=self.working_directory + r'\unpack\\')
         FASData(self.working_directory + r'\unpack\\' + seq_file, self, True, True)
         self.sprite_handler.update_frames()
 
