@@ -133,7 +133,7 @@ def faz_inflate(packed_path, save_to_file, save_location=''):
     # if not (os.path.exists(anim_name + '.FAS')):
     if save_to_file:
         try:
-            anim_file = open(save_location + anim_name.casefold() + FAS_EXTENSION, 'wb+')
+            anim_file = open(save_location + anim_name.casefold().upper() + FAS_EXTENSION.upper(), 'wb+')
             anim_file.write(anim_data)
         finally:
             anim_file.close()
@@ -252,8 +252,10 @@ class SpriteUnit(pg.sprite.Sprite):
                         if len(x) > 0:
                             self.seq_data.append(flatten(x))
                     elif isinstance(x, str):  # sequence shortcut
+                        x = x.casefold()
                         print('Expected:', x)
-                        if self.handler.app.settings['xtra'] and (x.casefold() + '_') in self.handler.app.sequences:
+                        if self.handler.app.settings['xtra'] and ((x + '_') in self.handler.app.sequences or
+                                                                  (x + '_') in self.handler.app.sequences_extra):
                             print('Got:', x + '_')
                             self.seq_data.append(get_sequence(x + '_', self.handler.app))
                         else:
@@ -333,7 +335,8 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.seq_data.append([])
                     elif isinstance(x, dict):
                         if 'load_fas' in x:  # load external file
-                            FASData(self.handler.app.data_directory + x['load_fas'] + '.FAS', self.handler.app, False, True)
+                            FASData(self.handler.app.data_directory + x['load_fas'] + '.FAS', self.handler.app,
+                                    False, True)
                             self.handler.update_frames()
                         if 'toggle_flag' in x:  # sprite modification flags
                             self.flags ^= x['toggle_flag']
@@ -443,18 +446,21 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.touch_state = 0
                 else:
                     # self.seq_name = 'idle'
-                    self.seq_data = [get_sequence('idle', self.handler.app)]
+                    is_demo = self.handler.app.settings['simulate_demo']
+                    self.seq_data = [get_sequence('idle_demo', self.handler.app)
+                                     if is_demo
+                                     else get_sequence('idle', self.handler.app)]
                     self.handler.app.remove_unpacks()
                     self.handler.app.load_idle_sequence()
-                    is_demo = self.handler.app.settings['simulate_demo']
-                    if 'all' in self.handler.app.sequences_extra and not is_demo:
-                        self.seq_data[0].append(get_sequence('all', self.handler.app))
-                    elif 'all_demo' in self.handler.app.sequences_extra and is_demo:
-                        self.seq_data[0].append(get_sequence('all_demo', self.handler.app))
-                    elif 'all_slow' in self.handler.app.sequences_extra and not is_demo:
-                        self.seq_data[0].append(get_sequence('all_slow', self.handler.app))
-                    elif 'all_slow_demo' in self.handler.app.sequences_extra and is_demo:
-                        self.seq_data[0].append(get_sequence('all_slow_demo', self.handler.app))
+                    if 'all' in self.handler.app.sequences_extra or 'all_demo' in self.handler.app.sequences_extra:
+                        self.seq_data[0].append(get_sequence('all_demo', self.handler.app)) \
+                        if is_demo and 'all_demo' in self.handler.app.sequences_extra \
+                        else self.seq_data[0].append(get_sequence('all', self.handler.app))
+                    elif 'all_slow' in self.handler.app.sequences_extra \
+                        or 'all_slow_demo' in self.handler.app.sequences_extra:
+                        self.seq_data[0].append(get_sequence('all_slow_demo', self.handler.app)) \
+                        if is_demo and 'all_slow_demo' in self.handler.app.sequences_extra\
+                        else self.seq_data[0].append(get_sequence('all_slow', self.handler.app))
                 # pass
 
 
@@ -486,12 +492,12 @@ class SpriteHandler:
         for i in self.sprites:
             if not i.flags & 4:
                 # pg.draw.rect(self.app.screen, color='pink', rect=i.rect)
-                # if i.fence_rect:
-                #     pg.draw.rect(self.app.screen, color='red2', rect=i.fence_rect, width=1)
                 self.app.screen.blit(i.image, (i.rect.left, i.rect.top))
-                # pg.draw.lines(self.app.screen, color='red2', closed=True,
-                #               points=[i.fence_rect.topleft, i.fence_rect.topright,
-                #                       i.fence_rect.bottomright, i.fence_rect.bottomleft], width=2)  # fencing region
+                if i.fence_rect:
+                # pg.draw.rect(self.app.screen, color='red2', rect=i.fence_rect, width=1)
+                    pg.draw.lines(self.app.screen, color='red2', closed=True,
+                                  points=[i.fence_rect.topleft, i.fence_rect.topright,
+                                          i.fence_rect.bottomright, i.fence_rect.bottomleft], width=1)  # fencing region
                 # pg.draw.lines(self.app.screen, color='green', closed=True,
                 #               points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft],
                 #               width=1)
@@ -548,7 +554,8 @@ class App:
         pg.display.flip()
         self.working_directory = working_directory
         self.character = character
-        self.data_directory = working_directory + '\\' + character + '\\Data\\'
+        self.data_directory = r'E:\DeskMates\\' + character + '\\Data\\'
+        # self.data_directory = working_directory + '\\' + character + '\\Data\\'
         self.load_character()
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
 
@@ -595,10 +602,9 @@ class App:
         else:
             self.main_fas_files = [*glob.glob(FAS_WILDCARD, root_dir = self.data_directory)]
         self.sequence_files = [i.casefold() for i in glob.glob('*.FAZ', root_dir = self.data_directory)]
-        # print(self.main_fas_files)
-        for file in self.main_fas_files:
+        for file in self.main_fas_files.__reversed__():
             file_data = FASData(self.data_directory + file, self)
-            if file.casefold().startswith(COMMON_FILENAME) or file.casefold().startswith(TOUCH_FILENAME):
+            if file.casefold().startswith(TOUCH_FILENAME):
                 if not(file.casefold().endswith(DEMO_SUFFIX + FAS_EXTENSION)) != self.settings['simulate_demo']:
                         self.sequences.update(file_data.sequences)
             else:
@@ -712,12 +718,15 @@ class App:
                                                         min(max(0, (mouse_pos[1] - sprite.y)),
                                                             self.touch['height'] - 1):
                                                         if self.settings['limbo']:
-                                                            self.touch_color = 'UpdateRequired_'
+                                                            self.touch_color = 'updaterequired_'
                                                         else:
-                                                            self.touch_color = 'T' + read_rgb_to_hex(self.touch['colors'][value], True)
+                                                            self.touch_color = 'T' + read_rgb_to_hex(self.\
+                                                                                                     touch['colors']\
+                                                                                                         [value],
+                                                                                                     True)
                                                         sprite.touch_state = 1
                                                         sprite.seq_data =[[0, self.touch_color
-                                                        + TOUCH_STATES[sprite.touch_state]]]
+                                                                           + TOUCH_STATES[sprite.touch_state]]]
                                 else:
                                     sprite.seq_data = [[]]
                                 sprite.flags = 0
@@ -745,6 +754,8 @@ class App:
                 self.running = False
 
     def run(self):
+        print(self.sequences.keys())
+        print(self.sequences['enter'])
         while self.running:
             self.check_events()
             self.update()
@@ -764,7 +775,7 @@ class App:
 
 
 if __name__ == '__main__':
-    character = 'TestChar'
+    character = 'Johlee'
     working_directory = os.getcwd()
     config_filename = 'config.ini'
     # faz_inflate(data_directory + 'EMAIL.FAZ', save_to_file=True)
