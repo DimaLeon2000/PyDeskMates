@@ -512,8 +512,8 @@ class SpriteHandler:
                 # pg.draw.lines(self.app.screen, color='green', closed=True,
                 #               points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft],
                 #               width=1)
-                self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
-                                        text=f'{i.image_ind}', fgcolor='white')
+                # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
+                #                         text=f'{i.image_ind}', fgcolor='white')
                 # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
                 #                         text=f'{self.sprites.index(i)}', fgcolor='white')
                 # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4 + FONT_SIZE),
@@ -571,8 +571,7 @@ class App:
         pg.display.flip()
         self.working_directory = working_directory
         self.character = character
-        self.data_directory = r'E:\DeskMates\\' + character + '\\Data\\'
-        # self.data_directory = working_directory + '\\' + character + '\\Data\\'
+        self.data_directory = working_directory + '\\' + character + '\\Data\\'
         self.load_character()
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
 
@@ -585,17 +584,17 @@ class App:
         # self.sprite_handler.sprites[0].seq_data = [['T0x404040DOWN','T0x404040START',
         #                                             SeqRepeat('T0x404040LOOP',10),'T0x404040STOP']]
         self.menu = ButtonMenu(self)
-        self.menu.add_button(text='Settings')
-        self.menu.add_button(text='Sound on', checkbox=True)
-        self.menu.buttons[1].checked = self.settings['sound_on']
-        self.menu.buttons[1].callback = self.toggle_sound_setting
-        self.menu.add_button(text='Classic floating', checkbox=True)
-        self.menu.buttons[2].checked = self.settings['float_classic']
-        self.menu.buttons[2].callback = self.toggle_float_setting
-        self.menu.add_button(text='Adult mode', checkbox=True)
-        self.menu.buttons[3].checked = self.settings['xtra']
-        self.menu.buttons[3].callback = self.toggle_adult_mode_setting
-        self.menu.set_position([i - j for i, j in zip(list(WIN_SIZE), self.menu.get_size())])
+        # self.menu.add_button(text='Settings')
+        # self.menu.add_button(text='Sound on', checkbox=True)
+        # self.menu.buttons[1].checked = self.settings['sound_on']
+        # self.menu.buttons[1].callback = self.toggle_sound_setting
+        # self.menu.add_button(text='Classic floating', checkbox=True)
+        # self.menu.buttons[2].checked = self.settings['float_classic']
+        # self.menu.buttons[2].callback = self.toggle_float_setting
+        # self.menu.add_button(text='Adult mode', checkbox=True)
+        # self.menu.buttons[3].checked = self.settings['xtra']
+        # self.menu.buttons[3].callback = self.toggle_adult_mode_setting
+        # self.menu.set_position([i - j for i, j in zip(list(WIN_SIZE), self.menu.get_size())])
         self.running = True
 
 
@@ -812,7 +811,7 @@ class App:
 
 
 if __name__ == '__main__':
-    character = 'SnS'
+    character = 'TestChar'
     working_directory = os.getcwd()
     config_filename = 'config.ini'
     app = App()
