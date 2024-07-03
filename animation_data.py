@@ -38,6 +38,7 @@ def flatten(s):
 
 class FASData:
     def __init__(self, fas_path, app, extra=False, load_sequences=False):
+        # print(fas_path)
         self.app = app
         self.reader = FASReader(fas_path)
         # if self.reader != 0:
@@ -292,10 +293,10 @@ def parse_sequence(sequence):
 
 
 def get_sequence(seq, app):  # INCOMPLETE
-    if seq.casefold() in list(app.sequences.keys()):
-        sequence = app.sequences[seq.casefold()]
-    elif seq.casefold() in list(app.sequences_extra.keys()):
+    if seq.casefold() in list(app.sequences_extra.keys()):
         sequence = app.sequences_extra[seq.casefold()]
+    elif seq.casefold() in list(app.sequences.keys()):
+        sequence = app.sequences[seq.casefold()]
     else:
         print('Sequence "' + seq + '" not found.')
         return 0

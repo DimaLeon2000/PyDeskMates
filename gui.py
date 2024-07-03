@@ -51,32 +51,28 @@ class Button(Widget):
         self.size = [self.text_rect.width + self.padding * 2, self.char_rect.height + self.padding * 2]
         self.rect = pg.rect.Rect(pos, self.size)
         self.hovered = False
-        self.clicked = False
         self.callback = None
+        self.last_frame_click = False
 
     def draw(self, surface):
-        action = False
-        mouse_pos = pg.mouse.get_pos()
-
-        if self.rect.collidepoint(mouse_pos):
-            self.hovered = True
-            if pg.mouse.get_pressed()[0] == 1 and not self.clicked:
-                self.clicked = True
-                if self.callback:
-                    self.callback(self)
-                action = True
-        else:
-            self.hovered = False
-
-        if pg.mouse.get_pressed()[0] == 0:
-            self.clicked = False
-
         rect_color = HOVER_COLOR if self.hovered else 'white'
         pg.draw.rect(surface=surface, color=rect_color,
                      rect=self.rect)
         self.app.font.render_to(surface, (self.pos[0] + self.padding, self.pos[1] + self.padding),
                                      text=str(self.text), size=FONT_SIZE, fgcolor='black')
-        return action
+
+    def check_events(self):
+        mouse_pos = pg.mouse.get_pos()
+        mouse_pressed = pg.mouse.get_pressed()
+        self.hovered = self.rect.collidepoint(mouse_pos)
+        if mouse_pressed[0] and not self.last_frame_click:
+            if self.hovered:
+                if self.callback:
+                        self.callback(self)
+            self.last_frame_click = mouse_pressed[0]
+        if not mouse_pressed[0]:
+            self.last_frame_click = False
+
 
     def set_text(self, text):
         self.text = str(text)
@@ -95,23 +91,6 @@ class ButtonCheckbox(Button):
         self.checked = False
 
     def draw(self, surface):
-        action = False
-        mouse_pos = pg.mouse.get_pos()
-
-        if self.rect.collidepoint(mouse_pos):
-            self.hovered = True
-            if pg.mouse.get_pressed()[0] == 1 and not self.clicked:
-                self.clicked = True
-                self.checked ^= True
-                if self.callback:
-                    self.callback(self)
-                action = True
-        else:
-            self.hovered = False
-
-        if pg.mouse.get_pressed()[0] == 0:
-            self.clicked = False
-
         rect_color = HOVER_COLOR if self.hovered else 'white'
         pg.draw.rect(surface=surface, color=rect_color,
                      rect=self.rect)
@@ -134,7 +113,19 @@ class ButtonCheckbox(Button):
         pg.draw.rect(surface=surface, color='black',
                      rect=[self.pos[0] + self.padding, self.pos[1] + self.padding,
                            self.char_rect.height + 1, self.char_rect.height + 1], width = 1)
-        return action
+    def check_events(self):
+        mouse_pos = pg.mouse.get_pos()
+        mouse_pressed = pg.mouse.get_pressed()
+        self.hovered = self.rect.collidepoint(mouse_pos)
+        if mouse_pressed[0] and not self.last_frame_click:
+            if self.hovered:
+                self.checked ^= True
+                if self.callback:
+                        self.callback(self)
+            self.last_frame_click = mouse_pressed[0]
+            return
+        if not mouse_pressed[0]:
+            self.last_frame_click = False
 
     def set_text(self, text):
         self.text = str(text)
@@ -164,6 +155,10 @@ class ButtonMenu(Widget):
     def draw(self, surface):
         for button in self.buttons:
             button.draw(surface)
+
+    def check_events(self):
+        for button in self.buttons:
+            button.check_events()
 
     def update_menu_width(self):
         max_rect_width = max([i.size[0] for i in self.buttons])

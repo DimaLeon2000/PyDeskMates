@@ -253,13 +253,14 @@ class SpriteUnit(pg.sprite.Sprite):
                             self.seq_data.append(flatten(x))
                     elif isinstance(x, str):  # sequence shortcut
                         x = x.casefold()
-                        print('Expected:', x)
+                        # print('Expected:', x)
                         if self.handler.app.settings['xtra'] and ((x + '_') in self.handler.app.sequences or
                                                                   (x + '_') in self.handler.app.sequences_extra):
-                            print('Got:', x + '_')
+                            # print('Got:', x + '_')
                             self.seq_data.append(get_sequence(x + '_', self.handler.app))
                         else:
-                            print('Got:', x)
+                            # print('Got:', x)
+                            # print(get_sequence(x, self.handler.app))
                             self.seq_data.append(get_sequence(x, self.handler.app))
                     elif isinstance(x, range):
                         j = 0
@@ -335,9 +336,10 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.seq_data.append([])
                     elif isinstance(x, dict):
                         if 'load_fas' in x:  # load external file
-                            FASData(self.handler.app.data_directory + x['load_fas'] + '.FAS', self.handler.app,
-                                    False, True)
-                            self.handler.update_frames()
+                            if x['load_fas'].casefold()+FAS_EXTENSION in self.handler.app.demand_load_only_list:
+                                FASData(self.handler.app.data_directory + x['load_fas'] + FAS_EXTENSION, self.handler.app,
+                                    True, True)
+                                self.handler.update_frames()
                         if 'toggle_flag' in x:  # sprite modification flags
                             self.flags ^= x['toggle_flag']
                         elif 'sound' in x:  # playing sound
@@ -417,7 +419,6 @@ class SpriteUnit(pg.sprite.Sprite):
             self.frame_delay += max(0, (FRAME_RATE + ORIGINAL_FRAME_RATE / 2) // ORIGINAL_FRAME_RATE - 1,
                                     (self.handler.app.clock.get_fps() + ORIGINAL_FRAME_RATE / 2) //
                                     ORIGINAL_FRAME_RATE - 1)
-        # print(self.seq_data)
         if len(self.seq_data) == 1 and (not self.seq_data[0]):
             if self.temporary:
                 temp_sprite = self.handler.sprites.index(self)
@@ -519,6 +520,10 @@ class App:
         self.sounds = {}
         self.clicked_sprite = None
         self.touch_color = ''
+        self.demand_load_only_list = []
+        self.no_all_list = []
+        self.sequence_files = []
+        self.adult_mode_list = []
         self.settings = {
             'home_pos': (WIDTH // 2, HEIGHT // 2),
             'float_classic': False,
@@ -554,8 +559,7 @@ class App:
         pg.display.flip()
         self.working_directory = working_directory
         self.character = character
-        self.data_directory = r'E:\DeskMates\\' + character + '\\Data\\'
-        # self.data_directory = working_directory + '\\' + character + '\\Data\\'
+        self.data_directory = working_directory + '\\' + character + '\\Data\\'
         self.load_character()
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
 
@@ -597,11 +601,20 @@ class App:
             and os.path.isfile(self.data_directory + DEMAND_LOAD_ONLY_LIST_FILE):
             self.demand_load_only_list = [i.strip('\n').casefold() for i in open(self.data_directory
                                                                             + DEMAND_LOAD_ONLY_LIST_FILE)]
-            self.main_fas_files = [*filter(lambda load_only: not load_only in self.demand_load_only_list,
+            self.main_fas_files = [*filter(lambda load_only: not load_only.casefold() in self.demand_load_only_list,
                                         glob.glob(FAS_WILDCARD, root_dir = self.data_directory))]
         else:
             self.main_fas_files = [*glob.glob(FAS_WILDCARD, root_dir = self.data_directory)]
-        self.sequence_files = [i.casefold() for i in glob.glob('*.FAZ', root_dir = self.data_directory)]
+        if os.path.exists(self.data_directory + NO_ALL_LIST_FILE)\
+                and os.path.isfile(self.data_directory + NO_ALL_LIST_FILE):
+            self.no_all_list = [i.strip('\n').casefold() for i in open(self.data_directory
+                                                                            + NO_ALL_LIST_FILE)]
+
+        if os.path.exists(self.data_directory + XTRA_LIST_FILE)\
+                and os.path.isfile(self.data_directory + XTRA_LIST_FILE):
+            self.adult_mode_list = [i.strip('\n').casefold() for i in open(self.data_directory
+                                                                            + XTRA_LIST_FILE)]
+        self.sequence_files = [i.casefold() for i in glob.glob(FAZ_WILDCARD, root_dir = self.data_directory)]
         for file in self.main_fas_files.__reversed__():
             file_data = FASData(self.data_directory + file, self)
             if file.casefold().startswith(TOUCH_FILENAME):
@@ -614,13 +627,19 @@ class App:
     def load_idle_sequence(self):
         self.frames_extra.clear()
         self.sequences_extra.clear()
-        seq_file = random.choice(list(filter(lambda x: x != 'email.faz', self.sequence_files)))
+        seq_list = [*filter(lambda x: x != 'email.faz', self.sequence_files)]
+        seq_list.extend([*filter(lambda x: not x in self.no_all_list, self.demand_load_only_list)])
+        if not self.settings['xtra']:
+            seq_list = [*filter(lambda x: not x.startswith(tuple(self.adult_mode_list)), seq_list)]
+        seq_file = random.choice(seq_list)
         if seq_file.endswith(FAZ_EXTENSION):
             if not os.path.exists(self.working_directory + r'\unpack\\'):
                 os.mkdir(self.working_directory + r'\unpack\\')
             seq_file = faz_inflate(self.data_directory + seq_file, True,
                                    save_location=self.working_directory + r'\unpack\\')
-        FASData(self.working_directory + r'\unpack\\' + seq_file, self, True, True)
+            FASData(self.working_directory + r'\unpack\\' + seq_file, self, True, True)
+        elif seq_file.endswith(FAS_EXTENSION):
+            FASData(self.data_directory + seq_file, self, True, True)
         self.sprite_handler.update_frames()
 
 
@@ -687,6 +706,7 @@ class App:
         #                                                         'first frame; end - last frame', fgcolor='black')
 
     def check_events(self):
+        self.menu.check_events()
         for e in pg.event.get():
             mouse_pos = pg.mouse.get_pos()
             if e.type == pg.MOUSEBUTTONDOWN:
@@ -696,7 +716,6 @@ class App:
                             if s.rect.collidepoint(mouse_pos) and\
                                 bool(s.image.get_at((mouse_pos[0] - s.x, mouse_pos[1] - s.y))[3] >> 7 % 2):
                                 self.clicked_sprite = s
-                                self.remove_unpacks()
                                 break
                         if self.clicked_sprite:
                             for i in self.sounds:
@@ -737,8 +756,14 @@ class App:
                                 sprite.repeats_highest_level = 0
                                 sprite.float_highest_level = 0
                                 sprite.frame_delay = 0
+                                sprite.vel_x, sprite.vel_y = 0, 0
+                                sprite.vel_max_x, self.vel_max_y = 0, 0
+                                sprite.float_highest_level = 0
                                 sprite.fence_rect = pg.rect.Rect(-sprite.rect.width, -sprite.rect.height,
                                                                  WIDTH + sprite.rect.width, HEIGHT + sprite.rect.height)
+                                self.remove_unpacks()
+                                self.frames_extra.clear()
+                                self.sequences_extra.clear()
             elif e.type == pg.MOUSEMOTION:
                 if self.clicked_sprite:
                     self.clicked_sprite.x += e.rel[0]
@@ -754,8 +779,6 @@ class App:
                 self.running = False
 
     def run(self):
-        print(self.sequences.keys())
-        print(self.sequences['enter'])
         while self.running:
             self.check_events()
             self.update()
@@ -775,10 +798,8 @@ class App:
 
 
 if __name__ == '__main__':
-    character = 'Johlee'
+    character = 'TestChar'
     working_directory = os.getcwd()
     config_filename = 'config.ini'
-    # faz_inflate(data_directory + 'EMAIL.FAZ', save_to_file=True)
-    # file_name = 'TEST_FILE.FAS'
     app = App()
     app.run()
