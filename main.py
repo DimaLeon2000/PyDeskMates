@@ -149,7 +149,7 @@ class SpriteUnit(pg.sprite.Sprite):
         self.vel_x, self.vel_y = 0, 0
         self.vel_max_x, self.vel_max_y = 0, 0
         super().__init__(handler.group)
-        self.image_ind = list(self.handler.app.frames.keys()).index(3)
+        self.image_ind = [*self.handler.app.frames.keys()].index(3)
         self.image = self.handler.images[self.image_ind]
         self.rect = self.image.get_rect()
         self.rect.topleft = self.x, self.y
@@ -168,6 +168,7 @@ class SpriteUnit(pg.sprite.Sprite):
         self.repeats_highest_level = 0
         self.float_highest_level = 0
         self.frame_delay = 0
+        self.ready_to_load_sequences = False
 
     def translate(self):
         self.x += self.vel_x
@@ -212,7 +213,12 @@ class SpriteUnit(pg.sprite.Sprite):
         # if self.image_ind >= len(self.handler.images):
         #     temp_img = self.handler.images_extra[self.image_ind - len(self.handler.images)]
         # else:
-        temp_img = self.handler.images[self.image_ind]
+        try:
+            temp_img = self.handler.images[self.image_ind]
+        except IndexError:
+            print(self.image_ind, '|',len(self.handler.images))
+            self.image_ind = [*self.handler.app.frames.keys()].index(0)
+            temp_img = self.handler.images[self.image_ind]
         self.image = pg.transform.flip(temp_img, bool(self.flags & 1), bool(self.flags & 2))
         self.rect = self.image.get_rect()
         self.rect.topleft = self.x, self.y
@@ -419,6 +425,20 @@ class SpriteUnit(pg.sprite.Sprite):
             self.frame_delay += max(0, (FRAME_RATE + ORIGINAL_FRAME_RATE / 2) // ORIGINAL_FRAME_RATE - 1,
                                     (self.handler.app.clock.get_fps() + ORIGINAL_FRAME_RATE / 2) //
                                     ORIGINAL_FRAME_RATE - 1)
+        if self.ready_to_load_sequences:
+            is_demo = self.handler.app.settings['simulate_demo']
+            self.ready_to_load_sequences = False
+            self.handler.app.remove_unpacks()
+            self.handler.app.load_idle_sequence()
+            if 'all' in self.handler.app.sequences_extra or 'all_demo' in self.handler.app.sequences_extra:
+                self.seq_data[0].append(get_sequence('all_demo', self.handler.app)) \
+                if is_demo and 'all_demo' in self.handler.app.sequences_extra \
+                else self.seq_data[0].append(get_sequence('all', self.handler.app))
+            elif 'all_slow' in self.handler.app.sequences_extra \
+                or 'all_slow_demo' in self.handler.app.sequences_extra:
+                self.seq_data[0].append(get_sequence('all_slow_demo', self.handler.app)) \
+                if is_demo and 'all_slow_demo' in self.handler.app.sequences_extra\
+                else self.seq_data[0].append(get_sequence('all_slow', self.handler.app))
         if len(self.seq_data) == 1 and (not self.seq_data[0]):
             if self.temporary:
                 temp_sprite = self.handler.sprites.index(self)
@@ -451,17 +471,7 @@ class SpriteUnit(pg.sprite.Sprite):
                     self.seq_data = [get_sequence('idle_demo', self.handler.app)
                                      if is_demo
                                      else get_sequence('idle', self.handler.app)]
-                    self.handler.app.remove_unpacks()
-                    self.handler.app.load_idle_sequence()
-                    if 'all' in self.handler.app.sequences_extra or 'all_demo' in self.handler.app.sequences_extra:
-                        self.seq_data[0].append(get_sequence('all_demo', self.handler.app)) \
-                        if is_demo and 'all_demo' in self.handler.app.sequences_extra \
-                        else self.seq_data[0].append(get_sequence('all', self.handler.app))
-                    elif 'all_slow' in self.handler.app.sequences_extra \
-                        or 'all_slow_demo' in self.handler.app.sequences_extra:
-                        self.seq_data[0].append(get_sequence('all_slow_demo', self.handler.app)) \
-                        if is_demo and 'all_slow_demo' in self.handler.app.sequences_extra\
-                        else self.seq_data[0].append(get_sequence('all_slow', self.handler.app))
+                    self.ready_to_load_sequences = True
                 # pass
 
 
@@ -494,14 +504,16 @@ class SpriteHandler:
             if not i.flags & 4:
                 # pg.draw.rect(self.app.screen, color='pink', rect=i.rect)
                 self.app.screen.blit(i.image, (i.rect.left, i.rect.top))
-                if i.fence_rect:
-                # pg.draw.rect(self.app.screen, color='red2', rect=i.fence_rect, width=1)
-                    pg.draw.lines(self.app.screen, color='red2', closed=True,
-                                  points=[i.fence_rect.topleft, i.fence_rect.topright,
-                                          i.fence_rect.bottomright, i.fence_rect.bottomleft], width=1)  # fencing region
+                # if i.fence_rect:
+                # # pg.draw.rect(self.app.screen, color='red2', rect=i.fence_rect, width=1)
+                #     pg.draw.lines(self.app.screen, color='red2', closed=True,
+                #                   points=[i.fence_rect.topleft, i.fence_rect.topright,
+                #                           i.fence_rect.bottomright, i.fence_rect.bottomleft], width=1)  # fencing region
                 # pg.draw.lines(self.app.screen, color='green', closed=True,
                 #               points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft],
                 #               width=1)
+                self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
+                                        text=f'{i.image_ind}', fgcolor='white')
                 # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
                 #                         text=f'{self.sprites.index(i)}', fgcolor='white')
                 # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4 + FONT_SIZE),
@@ -559,7 +571,8 @@ class App:
         pg.display.flip()
         self.working_directory = working_directory
         self.character = character
-        self.data_directory = working_directory + '\\' + character + '\\Data\\'
+        self.data_directory = r'E:\DeskMates\\' + character + '\\Data\\'
+        # self.data_directory = working_directory + '\\' + character + '\\Data\\'
         self.load_character()
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
 
@@ -627,6 +640,7 @@ class App:
     def load_idle_sequence(self):
         self.frames_extra.clear()
         self.sequences_extra.clear()
+        self.sprite_handler.update_frames()
         seq_list = [*filter(lambda x: x != 'email.faz', self.sequence_files)]
         seq_list.extend([*filter(lambda x: not x in self.no_all_list, self.demand_load_only_list)])
         if not self.settings['xtra']:
@@ -798,7 +812,7 @@ class App:
 
 
 if __name__ == '__main__':
-    character = 'TestChar'
+    character = 'SnS'
     working_directory = os.getcwd()
     config_filename = 'config.ini'
     app = App()
