@@ -722,9 +722,9 @@ class App:
         #                                                         'first frame; end - last frame', fgcolor='black')
 
     def check_events(self):
-        self.menu.check_events()
         for e in pg.event.get():
             mouse_pos = pg.mouse.get_pos()
+            self.menu.check_events(e)
             if e.type == pg.MOUSEBUTTONDOWN:
                 if e.button == 1:
                     if hasattr(self, 'sprite_handler'):

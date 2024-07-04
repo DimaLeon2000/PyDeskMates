@@ -113,7 +113,7 @@ class ButtonCheckbox(Button):
         pg.draw.rect(surface=surface, color='black',
                      rect=[self.pos[0] + self.padding, self.pos[1] + self.padding,
                            self.char_rect.height + 1, self.char_rect.height + 1], width = 1)
-    def check_events(self):
+    def check_events(self, event=None):
         mouse_pos = pg.mouse.get_pos()
         mouse_pressed = pg.mouse.get_pressed()
         self.hovered = self.rect.collidepoint(mouse_pos)
