@@ -384,7 +384,10 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.flip()
                         if to_be_fenced:
                             to_be_fenced = False
-                            self.rect.clamp_ip(self.fence_rect)
+                            # self.rect.clamp_ip(self.fence_rect)
+                            self.rect.topleft = self.fence_rect.topleft
+                            self.rect.left -= max(0, self.rect.width - self.fence_rect.width)
+                            self.rect.top  -= max(0, self.rect.height - self.fence_rect.height)
                             self.fence_rect = None
                         self.x, self.y = self.rect.left, self.rect.top
                         break
@@ -504,8 +507,8 @@ class SpriteHandler:
             if not i.flags & 4:
                 # pg.draw.rect(self.app.screen, color='pink', rect=i.rect)
                 self.app.screen.blit(i.image, (i.rect.left, i.rect.top))
-                # if i.fence_rect:
-                # # pg.draw.rect(self.app.screen, color='red2', rect=i.fence_rect, width=1)
+                if i.fence_rect:
+                    pg.draw.rect(self.app.screen, color='red2', rect=i.fence_rect, width=1)
                 #     pg.draw.lines(self.app.screen, color='red2', closed=True,
                 #                   points=[i.fence_rect.topleft, i.fence_rect.topright,
                 #                           i.fence_rect.bottomright, i.fence_rect.bottomleft], width=1)  # fencing region
@@ -514,10 +517,10 @@ class SpriteHandler:
                 #               width=1)
                 # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
                 #                         text=f'{i.image_ind}', fgcolor='white')
-                # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
-                #                         text=f'{self.sprites.index(i)}', fgcolor='white')
-                # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4 + FONT_SIZE),
-                #                         text=f'X: {i.x}; Y: {i.y}', fgcolor='black')
+                self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
+                                        text=f'{self.sprites.index(i)}', fgcolor='white')
+                self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4 + FONT_SIZE),
+                                        text=f'X: {i.x}; Y: {i.y}', fgcolor='black')
 
 
 class App:

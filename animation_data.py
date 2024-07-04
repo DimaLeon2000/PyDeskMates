@@ -54,7 +54,7 @@ class FASData:
         if hasattr(self.reader, 'extra_sprite_files'):
             self.extra_files = []
             for i in self.reader.extra_sprite_files['files']:
-                self.extra_files.append(app.data_directory + i + '.FAS')
+                self.extra_files.append(app.data_directory + i + '.fas')
                 # FASData(app.data_directory + i + '.FAS', app, True)
         self.sequences = {}
         for i in range(self.reader.seq_header['seq_count']):
@@ -68,19 +68,21 @@ class FASData:
             #     'bitmap': self.reader.frames_bitmap[i],
             #     'info': self.reader.frames_header['info'][i]
             # }
-        for i in self.frames:
-            if extra:
-                # self.app.frames_extra[i] = self.get_frame_masked(i)
-                self.app.frames_extra[i] = self.frames[i]
-            else:
-                # self.app.frames[i] = self.get_frame_masked(i)
-                self.app.frames[i] = self.frames[i]
+        if extra:
+            # self.app.frames_extra[i] = self.get_frame_masked(i)
+            self.app.frames_extra.update(self.frames)
+        else:
+            # self.app.frames[i] = self.get_frame_masked(i)
+            self.app.frames.update(self.frames)
         if load_sequences:
             if extra:
                 # self.app.sequences_extra.update(self.sequences)
                 self.app.sequences_extra.update(self.sequences)
             else:
                 self.app.sequences.update(self.sequences)
+        if hasattr(self, 'extra_files'):
+            for i in self.extra_files:
+                FASData(i, app, True, True)
 
     def get_frame_bitmap(self, __frame, mask):
         # bitmap_info = self.reader.bitmap_infos[self.frames[__frame]['info'] * 2 + int(mask)]
@@ -274,6 +276,12 @@ def parse_sequence(sequence):
             cur_part = i
         level += i.count('(') + i.count('[') + i.count('{')
         level -= i.count(')') + i.count(']') + i.count('}')
+        if ')(' in cur_part:
+            j = cur_part.split(sep=')(')
+            j[0] += ')'
+            j[1] = '(' + j[1]
+            parts.append(j[0])
+            cur_part = j[1]
         if i.count('\xA9') >= 1:
             if fence_open_close == 1:
                 level -= i.count('\xA9')
