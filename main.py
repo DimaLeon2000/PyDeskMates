@@ -263,6 +263,7 @@ class SpriteUnit(pg.sprite.Sprite):
                         if self.handler.app.settings['xtra'] and ((x + '_') in self.handler.app.sequences or
                                                                   (x + '_') in self.handler.app.sequences_extra):
                             # print('Got:', x + '_')
+                            # print(get_sequence(x + '_', self.handler.app))
                             self.seq_data.append(get_sequence(x + '_', self.handler.app))
                         else:
                             # print('Got:', x)
@@ -384,10 +385,10 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.flip()
                         if to_be_fenced:
                             to_be_fenced = False
-                            # self.rect.clamp_ip(self.fence_rect)
-                            self.rect.topleft = self.fence_rect.topleft
-                            self.rect.left -= max(0, self.rect.width - self.fence_rect.width)
-                            self.rect.top  -= max(0, self.rect.height - self.fence_rect.height)
+                            self.rect.clamp_ip(self.fence_rect)
+                            # self.rect.topleft = self.fence_rect.topleft
+                            # self.rect.left -= max(0, self.rect.width - self.fence_rect.width)
+                            # self.rect.top  -= max(0, self.rect.height - self.fence_rect.height)
                             self.fence_rect = None
                         self.x, self.y = self.rect.left, self.rect.top
                         break
@@ -403,6 +404,8 @@ class SpriteUnit(pg.sprite.Sprite):
                 temp_sprite = SpriteUnit(self.handler, 300, 300)
             temp_sprite.parent_spr = self
             temp_sprite.temporary = True
+            temp_sprite.vel_x, temp_sprite.vel_y = self.vel_x, self.vel_y
+            temp_sprite.vel_max_x, temp_sprite.vel_max_y = self.vel_max_x, self.vel_max_y
             # print(get_sequence(adding_sprite_data.seq_data[0], self.handler.app))
             temp_sprite.seq_data = [adding_sprite_data.seq_data]
             temp_sprite.update()

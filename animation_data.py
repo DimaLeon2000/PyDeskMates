@@ -12,10 +12,10 @@ REGEX_ADD_SPRITE = r'#([#-]+)?(.+[^,])'  # places a temporary extra sprite
 # REGEX_FENCING = r'©(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])\,(?:\[(-?\d+)\,(-?\d+)\])?(\d[lcr]\d[tmb])©'
 REGEX_FENCING = r'©(?:\[(-?\d+,-?\d+)\])?(\d[lcr]\d[tmb])\,(?:\[(-?\d+,-?\d+)\])?(\d[lcr]\d[tmb])©'
 REGEX_FLOATING = r'§(\d)\/(\d)'
-REGEX_FRAME_RANGE = r'(\d+)-(\d+)'
+REGEX_FRAME_RANGE = r'(\d+)-(\d+)(.*)'
 REGEX_GROUP = r'^\((.+)\)([^\*\@]*)?$'
 REGEX_LOAD_FAS = r'_([^,]+)'  # load external FAS file
-REGEX_OFFSET = r'\[(-?\d+,-?\d+)\](.*)?'
+REGEX_OFFSET = r'\[(-?\d+,-?\d+)\]([^\[\]]*)?'
 REGEX_RANDOM_CHOICES = r'{(.+?)}(.*)?'
 REGEX_RANDOM_CHOICES_CHOICE_WEIGHTED = r'(.+)%(\d+)'
 REGEX_REPEAT = r'(\(.+?\)|\w+?|\d+?)\*(\d+)'  # Repeat the sequence X times
@@ -222,11 +222,12 @@ def parse_sequence_part(__part):  # INCOMPLETE
             result.append(parse_sequence_part(res1))
         return result
     elif re.match(REGEX_FRAME_RANGE, __part):
-        frame_start, frame_end = int(re.match(REGEX_FRAME_RANGE, __part).groups()[0]),\
-            int(re.match(REGEX_FRAME_RANGE, __part).groups()[1])
+        frame_start, frame_end = int(re.match(REGEX_FRAME_RANGE, __part).group(1)),\
+            int(re.match(REGEX_FRAME_RANGE, __part).group(2))
         frame_range = range(frame_start, (frame_end - 1) if (frame_end < frame_start) else (frame_end + 1),
                             -1 if (frame_end < frame_start) else 1)
-        return frame_range
+        next_part = re.match(REGEX_FRAME_RANGE, __part).group(3)
+        return [frame_range, parse_sequence_part(next_part)]
     elif re.match(REGEX_FENCING, __part):
         values = list(re.match(REGEX_FENCING, __part).groups())
         alignments = []
@@ -247,10 +248,15 @@ def parse_sequence_part(__part):  # INCOMPLETE
                     offsets[i >> 1] = Vector2(offsets[i >> 1])
         return SetFenceRegion(alignments, modes, offsets)
     elif re.match(REGEX_OFFSET, __part):
-        offset = list(literal_eval(re.match(REGEX_OFFSET, __part).group(1)))
-        offset[1] *= -1 # flipping the Y coordinate
-        part = re.match(REGEX_OFFSET, __part).group(2)
-        return [{'offset': Vector2(offset)}, parse_sequence_part(part)]
+        finds = re.findall(REGEX_OFFSET, __part)
+        parts = []
+        for i in finds:
+            offset = list(literal_eval(i[0]))
+            offset[1] *= -1 # flipping the Y coordinate
+            part = i[1]
+            parts.append({'offset': Vector2(offset)})
+            parts.append(parse_sequence_part(part))
+        return [i for i in parts]
     elif re.match(REGEX_SOUND, __part):
         return {'sound': re.match(REGEX_SOUND, __part).group(1)}
     elif re.match(REGEX_UNNAMED_FUNCTION, __part):
@@ -259,8 +265,8 @@ def parse_sequence_part(__part):  # INCOMPLETE
         return {'load_fas': re.match(REGEX_LOAD_FAS, __part).group(1)}
     elif __part.isnumeric():
         return int(__part)
-    else:
-        return __part
+    elif __part:
+            return __part
 
 
 def parse_sequence(sequence):
@@ -278,10 +284,12 @@ def parse_sequence(sequence):
         level -= i.count(')') + i.count(']') + i.count('}')
         if ')(' in cur_part:
             j = cur_part.split(sep=')(')
-            j[0] += ')'
-            j[1] = '(' + j[1]
-            parts.append(j[0])
-            cur_part = j[1]
+            for k in range(len(j)-1):
+                j[k] += ')'
+                j[k + 1] = '(' + j[k + 1]
+                if j[k]:
+                    parts.append(j[k])
+            cur_part = j[k + 1]
         if i.count('\xA9') >= 1:
             if fence_open_close == 1:
                 level -= i.count('\xA9')
@@ -295,8 +303,9 @@ def parse_sequence(sequence):
             cur_part = i
     parts_parsed = []
     for x in parts:
-        part_parsed = parse_sequence_part(x)
-        parts_parsed.append(part_parsed)
+        if x != '':
+            part_parsed = parse_sequence_part(x)
+            parts_parsed.append(part_parsed)
     return parts_parsed
 
 
