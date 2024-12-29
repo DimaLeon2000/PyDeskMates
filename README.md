@@ -37,14 +37,14 @@ Examples:
 double dagger (" !"/"‡", or 0x2021 in hex). Must be contained in the frame group. (Not necessary: If the previous sound
 is currently playing, the animation has to pause till the former ends before playing the next one.)
 
-Example (from the DESKMATE.FAS file of Oska DeskMate v2.06):
+Example (from the `DESKMATE.FAS` file of Oska DeskMate v2.06):
 
     ( !FLAP,1218,1220,1218,1219)
 </li>
 <li>Weighted random choices (DONE): parts followed by a percentage symbol and a number,
 separated with '|' delimiters and enclosed in curly brackets.
 
-Example (from the common_demo.FAS file of the Kahli DeskMate):
+Example (from the `common_demo.FAS` file of the Kahli DeskMate):
         
     {pause_chair%4|pause_ice|pause_metalsuit_a|pause_metalsuit_b%4|pause_orb%3|pause_treadmill%4}
 It will randomly pick either "pause_chair", "pause_ice", "pause_metalsuit_a", "pause_metalsuit_b", "pause_orb", or
@@ -94,14 +94,14 @@ Example:
 <li>Timer (DONE): The sequence will be looped for a set number of frames or more. The part is followed by the "at"
 symbol (@) and a number of frames. Introduced in Dancing Girls.
 
-Example (taken from the dance_cheerleader.FAS file of the Dancing Girls DeskMate):
+Example (taken from the `dance_cheerleader.FAS` file of the Dancing Girls DeskMate):
 
     float_loop_cheerleader@1000
 </li>
 <li>Masking (DONE): The sequence is preceded by the symbol &#189; (0xBD in hex) for masking the parent sprite.
 Introduced in Screen Sirens.
 
-Example (taken from the sfx_iris.FAS file of the Kahli 3D DeskMate):
+Example (taken from the `sfx_iris.FAS` file of the Kahli 3D DeskMate):
 
     ½9198,9100,9102,9104,9106,9108,9110,9112,9199
 </li>
