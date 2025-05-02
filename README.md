@@ -11,7 +11,7 @@ display: block; margin: auto;"></h1>
 <p>DeskMates are animated characters that live their own lives right on your desktop. You can launch the selected
 character and just watch their various sequences, or you can take an active part in them. Clicking on different parts of
 the character's body will cause them to have different reactions. There are also very small secret touch reactions
-(up to 1 pixel).</p>
+(up to 4 pixels).</p>
 
 
 <h2>Things to be added</h2>
