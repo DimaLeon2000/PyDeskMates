@@ -1,7 +1,7 @@
 <h1 align="center"><img src="img/logo.png" alt="PyDeskMates" style="width: 50%; min-width: 256px;
 display: block; margin: auto;"></h1>
 
-[![code license](https://img.shields.io/badge/code%20license-GPL--3.0-green)](https://github.com/DimaLeon2000/PyDeskMates/blob/main/LICENSE)
+[![code license](https://img.shields.io/badge/code%20license-MIT-green)](https://github.com/DimaLeon2000/PyDeskMates/blob/main/LICENSE)
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org/downloads/release/python-3100/)
 ![work in progress](https://img.shields.io/badge/status-work_in_progress-red)
 
@@ -11,7 +11,7 @@ display: block; margin: auto;"></h1>
 <p>DeskMates are animated characters that live their own lives right on your desktop. You can launch the selected
 character and just watch their various sequences, or you can take an active part in them. Clicking on different parts of
 the character's body will cause them to have different reactions. There are also very small secret touch reactions
-(up to 1 pixel).</p>
+(up to 4 pixels).</p>
 
 
 <h2>Things to be added</h2>
@@ -37,14 +37,14 @@ Examples:
 double dagger (" !"/"‡", or 0x2021 in hex). Must be contained in the frame group. (Not necessary: If the previous sound
 is currently playing, the animation has to pause till the former ends before playing the next one.)
 
-Example (from the DESKMATE.FAS file of Oska DeskMate v2.06):
+Example (from the `DESKMATE.FAS` file of Oska DeskMate v2.06):
 
     ( !FLAP,1218,1220,1218,1219)
 </li>
 <li>Weighted random choices (DONE): parts followed by a percentage symbol and a number,
 separated with '|' delimiters and enclosed in curly brackets.
 
-Example (from the common_demo.FAS file of the Kahli DeskMate):
+Example (from the `common_demo.FAS` file of the Kahli DeskMate):
         
     {pause_chair%4|pause_ice|pause_metalsuit_a|pause_metalsuit_b%4|pause_orb%3|pause_treadmill%4}
 It will randomly pick either "pause_chair", "pause_ice", "pause_metalsuit_a", "pause_metalsuit_b", "pause_orb", or
@@ -94,14 +94,14 @@ Example:
 <li>Timer (DONE): The sequence will be looped for a set number of frames or more. The part is followed by the "at"
 symbol (@) and a number of frames. Introduced in Dancing Girls.
 
-Example (taken from the dance_cheerleader.FAS file of the Dancing Girls DeskMate):
+Example (taken from the `dance_cheerleader.FAS` file of the Dancing Girls DeskMate):
 
     float_loop_cheerleader@1000
 </li>
 <li>Masking (DONE): The sequence is preceded by the symbol &#189; (0xBD in hex) for masking the parent sprite.
 Introduced in Screen Sirens.
 
-Example (taken from the sfx_iris.FAS file of the Kahli 3D DeskMate):
+Example (taken from the `sfx_iris.FAS` file of the Kahli 3D DeskMate):
 
     ½9198,9100,9102,9104,9106,9108,9110,9112,9199
 </li>
