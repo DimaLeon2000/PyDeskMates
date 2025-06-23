@@ -61,16 +61,16 @@ class Button(Widget):
         self.app.font.render_to(surface, (self.pos[0] + self.padding, self.pos[1] + self.padding),
                                      text=str(self.text), size=FONT_SIZE, fgcolor='black')
 
-    def check_events(self):
+    def check_events(self, event=None):
         mouse_pos = pg.mouse.get_pos()
-        mouse_pressed = pg.mouse.get_pressed()
+        mouse_pressed = event.type == pg.MOUSEBUTTONDOWN & event.button == 1
         self.hovered = self.rect.collidepoint(mouse_pos)
-        if mouse_pressed[0] and not self.last_frame_click:
+        if mouse_pressed and not self.last_frame_click:
             if self.hovered:
                 if self.callback:
                         self.callback(self)
-            self.last_frame_click = mouse_pressed[0]
-        if not mouse_pressed[0]:
+            self.last_frame_click = mouse_pressed
+        if not mouse_pressed:
             self.last_frame_click = False
 
 
@@ -113,18 +113,18 @@ class ButtonCheckbox(Button):
         pg.draw.rect(surface=surface, color='black',
                      rect=[self.pos[0] + self.padding, self.pos[1] + self.padding,
                            self.char_rect.height + 1, self.char_rect.height + 1], width = 1)
-    def check_events(self):
+    def check_events(self, event=None):
         mouse_pos = pg.mouse.get_pos()
-        mouse_pressed = pg.mouse.get_pressed()
+        mouse_pressed = event.type == pg.MOUSEBUTTONDOWN & event.button == 1
         self.hovered = self.rect.collidepoint(mouse_pos)
-        if mouse_pressed[0] and not self.last_frame_click:
+        if mouse_pressed and not self.last_frame_click:
             if self.hovered:
                 self.checked ^= True
                 if self.callback:
                         self.callback(self)
-            self.last_frame_click = mouse_pressed[0]
+            self.last_frame_click = mouse_pressed
             return
-        if not mouse_pressed[0]:
+        if not mouse_pressed:
             self.last_frame_click = False
 
     def set_text(self, text):
@@ -158,7 +158,7 @@ class ButtonMenu(Widget):
 
     def check_events(self, event=None):
         for button in self.buttons:
-            button.check_events()
+            button.check_events(event)
 
     def update_menu_width(self):
         max_rect_width = max([i.size[0] for i in self.buttons])

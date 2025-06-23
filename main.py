@@ -14,6 +14,7 @@ import sys
 import os
 import zlib
 
+UNPACK_DIR = r'\unpack\\'
 
 LINE_UP = '\033[1A'
 LINE_CLEAR = '\x1b[2K'
@@ -210,9 +211,6 @@ class SpriteUnit(pg.sprite.Sprite):
                         self.y = self.fence_rect.bottom - self.rect.height
 
     def flip(self):
-        # if self.image_ind >= len(self.handler.images):
-        #     temp_img = self.handler.images_extra[self.image_ind - len(self.handler.images)]
-        # else:
         try:
             temp_img = self.handler.images[self.image_ind]
         except IndexError:
@@ -510,20 +508,21 @@ class SpriteHandler:
             if not i.flags & 4:
                 # pg.draw.rect(self.app.screen, color='pink', rect=i.rect)
                 self.app.screen.blit(i.image, (i.rect.left, i.rect.top))
-                if i.fence_rect:
-                    pg.draw.rect(self.app.screen, color='red2', rect=i.fence_rect, width=1)
-                #     pg.draw.lines(self.app.screen, color='red2', closed=True,
-                #                   points=[i.fence_rect.topleft, i.fence_rect.topright,
-                #                           i.fence_rect.bottomright, i.fence_rect.bottomleft], width=1)  # fencing region
-                # pg.draw.lines(self.app.screen, color='green', closed=True,
-                #               points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft],
-                #               width=1)
-                # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
-                #                         text=f'{i.image_ind}', fgcolor='white')
-                self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
-                                        text=f'{self.sprites.index(i)}', fgcolor='white')
-                self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4 + FONT_SIZE),
-                                        text=f'X: {i.x}; Y: {i.y}', fgcolor='black')
+                if DEBUG_MODE:
+                    if i.fence_rect:  # fencing region
+                        pg.draw.rect(self.app.screen, color='red2', rect=i.fence_rect, width=1)
+                    self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
+                                            text=f'{self.sprites.index(i)}', fgcolor='white')
+                    self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4 + FONT_SIZE),
+                                            text=f'X: {i.x}; Y: {i.y}', fgcolor='black')
+                    #     pg.draw.lines(self.app.screen, color='red2', closed=True,
+                    #                   points=[i.fence_rect.topleft, i.fence_rect.topright,
+                    #                           i.fence_rect.bottomright, i.fence_rect.bottomleft], width=1)
+                    # pg.draw.lines(self.app.screen, color='green', closed=True,
+                    #               points=[i.rect.topleft, i.rect.topright, i.rect.bottomright, i.rect.bottomleft],
+                    #               width=1)
+                    # self.app.font.render_to(self.app.screen, (i.rect.topleft[0] + 4, i.rect.topleft[1] + 4),
+                    #                         text=f'{i.image_ind}', fgcolor='white')
 
 
 class App:
@@ -577,7 +576,8 @@ class App:
         pg.display.flip()
         self.working_directory = working_directory
         self.character = character
-        self.data_directory = working_directory + '\\' + character + '\\Data\\'
+        self.data_directory = r'E:\DeskMates\\' + character + '\\Data\\'
+        # self.data_directory = working_directory + '\\' + character + '\\Data\\'
         self.load_character()
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
 
@@ -652,20 +652,20 @@ class App:
             seq_list = [*filter(lambda x: not x.startswith(tuple(self.adult_mode_list)), seq_list)]
         seq_file = random.choice(seq_list)
         if seq_file.endswith(FAZ_EXTENSION):
-            if not os.path.exists(self.working_directory + r'\unpack\\'):
-                os.mkdir(self.working_directory + r'\unpack\\')
+            if not os.path.exists(self.working_directory + UNPACK_DIR):
+                os.mkdir(self.working_directory + UNPACK_DIR)
             seq_file = faz_inflate(self.data_directory + seq_file, True,
-                                   save_location=self.working_directory + r'\unpack\\')
-            FASData(self.working_directory + r'\unpack\\' + seq_file, self, True, True)
+                                   save_location=self.working_directory + UNPACK_DIR)
+            FASData(self.working_directory + UNPACK_DIR + seq_file, self, True, True)
         elif seq_file.endswith(FAS_EXTENSION):
             FASData(self.data_directory + seq_file, self, True, True)
         self.sprite_handler.update_frames()
 
 
     def remove_unpacks(self):
-        if not os.path.exists(self.working_directory + r'\unpack\\'):
+        if not os.path.exists(self.working_directory + UNPACK_DIR):
             return
-        folder = self.working_directory + r'\unpack\\'
+        folder = self.working_directory + UNPACK_DIR
         for file in os.listdir(folder):
             filepath = os.path.join(folder, file)
             try:
