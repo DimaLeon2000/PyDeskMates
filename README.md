@@ -14,14 +14,14 @@ the character's body will cause them to have different reactions. There are also
 (up to 4 pixels).
 
 ## Setup
-To install dependencies if you haven't already, run `pip install -r requirements.txt`.
+To install dependencies if you haven't already, run the following command: `pip install -r requirements.txt`
 
 Copy a directory with the name of a DeskMate of your choices, containing the `Data` folder, into the `characters`
 directory if it exists.
 
 In the `main.py` file, change the value of the `characters` variable to the same name as the copied directory's.
 
-To start, run `python main.py`.
+To start, run the following command: `python main.py`
 
 ## Things to be added
 <ul>
