@@ -5,16 +5,25 @@ display: block; margin: auto;"></h1>
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue)](https://www.python.org/downloads/release/python-3100/)
 ![work in progress](https://img.shields.io/badge/status-work_in_progress-red)
 
-<p>An incomplete remake of Oska Software's DeskMates in Python. Contributions are welcome.</p>
+An incomplete remake of Oska Software's DeskMates in Python. Contributions are welcome.
 
-<h2>What are DeskMates?</h2>
-<p>DeskMates are animated characters that live their own lives right on your desktop. You can launch the selected
+## What are DeskMates?</h2>
+DeskMates are animated characters that live their own lives right on your desktop. You can launch the selected
 character and just watch their various sequences, or you can take an active part in them. Clicking on different parts of
 the character's body will cause them to have different reactions. There are also very small secret touch reactions
-(up to 4 pixels).</p>
+(up to 4 pixels).
 
+## Setup
+To install dependencies if you haven't already, run `pip install -r requirements.txt`.
 
-<h2>Things to be added</h2>
+Copy a directory with the name of a DeskMate of your choices, which contains the `Data` folder, into the `characters`
+directory (if present).
+
+In the `main.py` file, change the value of the `characters` variable to the same name as the copied directory's.
+
+To start, run `python main.py`
+
+## Things to be added
 <ul>
 <li>Touch reaction with hotspots (DONE)</li>
 <li>Recursive sequence parsing
