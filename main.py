@@ -576,8 +576,7 @@ class App:
         pg.display.flip()
         self.working_directory = working_directory
         self.character = character
-        self.data_directory = r'E:\DeskMates\\' + character + '\\Data\\'
-        # self.data_directory = working_directory + '\\' + character + '\\Data\\'
+        self.data_directory = working_directory + '\\' + character + '\\Data\\'
         self.load_character()
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
 
