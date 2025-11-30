@@ -13,6 +13,60 @@ import struct
 import sys
 import os
 import zlib
+# --- Windows-only transparent/desktop helper ---
+import sys
+import ctypes
+from ctypes import wintypes
+
+if sys.platform == "win32":
+    user32 = ctypes.WinDLL('user32', use_last_error=True)
+    gdi32 = ctypes.WinDLL('gdi32', use_last_error=True)
+
+    # constants
+    GWL_EXSTYLE = -20
+    WS_EX_LAYERED = 0x00080000
+    # WS_EX_TRANSPARENT = 0x00000020  # (optional: click-through if enabled)
+    LWA_COLORKEY = 0x00000001
+
+    def make_window_layered(hwnd, colorkey_rgb):
+        """Enable layered window with a color key (colorkey_rgb = (r,g,b))."""
+        ex = user32.GetWindowLongW(hwnd, GWL_EXSTYLE)
+        user32.SetWindowLongW(hwnd, GWL_EXSTYLE, ex | WS_EX_LAYERED)
+        r, g, b = colorkey_rgb
+        colorref = r | (g << 8) | (b << 16)  # 0x00bbggrr
+        user32.SetLayeredWindowAttributes(hwnd, wintypes.DWORD(colorref), wintypes.BYTE(0), wintypes.DWORD(LWA_COLORKEY))
+
+    def put_window_on_desktop(hwnd):
+        """Try to place window on the WorkerW behind icons (desktop widget)."""
+        progman = user32.FindWindowW("Progman", None)
+        if not progman:
+            return
+        # create WorkerW behind icons
+        user32.SendMessageTimeoutW(progman, 0x052C, 0, 0, 0, 1000, ctypes.byref(wintypes.DWORD()))
+        # find WorkerW that has SHELLDLL_DefView sibling
+        EnumWindowsProc = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        target = wintypes.HWND()
+
+        def enum_windows(hwnd, lParam):
+            # look for SHELLDLL_DefView child
+            child = user32.FindWindowExW(hwnd, 0, "SHELLDLL_DefView", None)
+            if child:
+                # next WorkerW in Z-order often is the one we need
+                worker = user32.FindWindowExW(None, hwnd, "WorkerW", None)
+                if worker:
+                    target.value = worker
+                    return False
+            return True
+
+        user32.EnumWindows(EnumWindowsProc(enum_windows), 0)
+        if target.value:
+            # set parent so window is drawn on desktop
+            try:
+                ctypes.windll.user32.SetParent(hwnd, target)
+            except Exception:
+                pass
+# --- end windows-only helper ---
+
 
 UNPACK_DIR = r'\unpack\\'
 
@@ -564,8 +618,23 @@ class App:
                 self.settings['sound_on'] = bool(int(self.config['DEFAULT']['SoundOn']))
             if 'Xtra' in self.config['DEFAULT']:
                 self.settings['xtra'] = bool(int(self.config['DEFAULT']['Xtra']))
-        self.screen = pg.display.set_mode(WIN_SIZE)
+        self.screen = ((pg.display.set_mode(WIN_SIZE, pg.NOFRAME | pg.SRCALPHA)) if sys.platform == 'win32' else (pg.display.set_mode(WIN_SIZE)))
         pg.display.set_caption('PyDeskMates [WORK IN PROGRESS]')
+        
+        # Windows transparency & desktop placement
+        if sys.platform == 'win32':
+            pg.display.flip()
+            try:
+                info = pg.display.get_wm_info()
+                hwnd = info.get('window') or info.get('hwnd')
+            except Exception:
+                hwnd = None
+            if hwnd:
+                make_window_layered(hwnd, (64, 64, 64))  # gray64 as chroma key
+                try:
+                    put_window_on_desktop(hwnd)  # comment out if you want it above icons
+                except Exception:
+                    pass
         self.clock = pg.time.Clock()
         self.font = ft.SysFont('Courier New', FONT_SIZE)
         self.dt = 0.0
@@ -692,7 +761,7 @@ class App:
         self.dt = self.clock.tick(FRAME_RATE)
 
     def draw(self):
-        self.screen.fill('gray64')
+        self.screen.fill((64, 64, 64))
         if hasattr(self, 'sprite_handler'):
             self.sprite_handler.draw()
         self.draw_fps()
@@ -816,7 +885,7 @@ class App:
 
 
 if __name__ == '__main__':
-    character = 'TestChar'
+    character = 'characters'
     working_directory = os.getcwd()
     config_filename = 'config.ini'
     app = App()
