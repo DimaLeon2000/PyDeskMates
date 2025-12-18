@@ -16,8 +16,8 @@ the character's body will cause them to have different reactions. There are also
 ## Setup
 To install dependencies if you haven't already, run the following command: `pip install -r requirements.txt`
 
-Copy a directory with the name of a DeskMate of your choices, containing the `Data` folder, into the `characters`
-directory if it exists.
+Copy a directory (not the contents of it) with the name of a DeskMate of your choices, containing the `Data` folder, into the `characters`
+directory if it exists, like so: `[root directory]\characters\[character name]`.
 
 In the `main.py` file, change the value of the `characters` variable to the same name as the copied directory's.
 
