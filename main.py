@@ -645,7 +645,7 @@ class App:
         pg.display.flip()
         self.working_directory = working_directory
         self.character = character
-        self.data_directory = working_directory + '\\' + character + '\\Data\\'
+        self.data_directory = working_directory + '\\characters\\' + character + '\\Data\\'
         self.load_character()
         # FASData(self.work_dir + self.character + '\\Data\\' + i, self)
 
@@ -885,7 +885,7 @@ class App:
 
 
 if __name__ == '__main__':
-    character = 'characters'
+    character = 'TestChar'
     working_directory = os.getcwd()
     config_filename = 'config.ini'
     app = App()
