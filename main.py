@@ -764,25 +764,26 @@ class App:
         self.screen.fill((64, 64, 64))
         if hasattr(self, 'sprite_handler'):
             self.sprite_handler.draw()
-        self.draw_fps()
+        # self.draw_fps()
         # self.touch_image.draw(self.screen)
         self.menu.draw(self.screen)
 
     def draw_fps(self):
         fps_text = f'{self.clock.get_fps() :.0f} FPS'
-        self.font.render_to(self.screen, (8, HEIGHT - 16), text=fps_text, fgcolor='black')
+        fgcolor = 'white'
+        self.font.render_to(self.screen, (8, HEIGHT - 16), text=fps_text, fgcolor=fgcolor)
         if hasattr(self, 'sprite_handler'):
             # seq_text = f'Current sequence: {self.sprite_handler.sprites[0].seq_name}'
             # seq_text = f'Current sequence: {self.sprite_handler.sprites[0].seq_data[0][0]}'
             # frame_text = f'Current frame: {list(app.frames.keys())[self.sprite_handler.sprites[0].image_ind]:04d}'
             self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 4),
-                                text=f'Simulate demo version: {str(self.settings["simulate_demo"])}', fgcolor='black')
+                                text=f'Simulate demo version: {str(self.settings["simulate_demo"])}', fgcolor=fgcolor)
             self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 3),
-                                text=f'Sprites: {len(self.sprite_handler.group)}', fgcolor='black')
+                                text=f'Sprites: {len(self.sprite_handler.group)}', fgcolor=fgcolor)
             self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 2),
-                                text=f'Classic floating: {self.settings["float_classic"]}', fgcolor='black')
+                                text=f'Classic floating: {self.settings["float_classic"]}', fgcolor=fgcolor)
             self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 1),
-                                text=f'Clicked sprite: {self.clicked_sprite}', fgcolor='black')
+                                text=f'Clicked sprite: {self.clicked_sprite}', fgcolor=fgcolor)
             # self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 2), text=seq_text, fgcolor='black')
             # self.font.render_to(self.screen, (8, HEIGHT - 16 - FONT_SIZE * 1),
             #                     text='Repeated sequence level: '
